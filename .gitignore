@@ -1,0 +1,10 @@
+*.cbp
+*.elf
+*.layout
+*.rpx
+build/
+*.save-failed
+.idea/
+cmake-build-debug/
+CMakeLists.txt
+*.wms
