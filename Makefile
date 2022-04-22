@@ -44,6 +44,11 @@ CXXFLAGS += -DDEBUG -g
 CFLAGS += -DDEBUG -g
 endif
 
+ifeq ($(DEBUG),VERBOSE)
+CXXFLAGS += -DDEBUG -DVERBOSE_DEBUG -g
+CFLAGS += -DDEBUG -DVERBOSE_DEBUG -g
+endif
+
 LIBS	:= -lwums -lwut -lfunctionpatcher
 
 #-------------------------------------------------------------------------------
