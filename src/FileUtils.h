@@ -15,7 +15,6 @@ extern std::vector<IFSWrapper *> fsLayers;
     return res;                                                                                                                                             \
 }
 
-
 #define ASYNC_RESULT_HANDLER [c = client, b = block, a = asyncData, filename = __FILENAME__, func = __FUNCTION__, line = __LINE__]([[maybe_unused]] IFSWrapper *layer, FSStatus res) -> FSStatus { \
     DEBUG_FUNCTION_LINE_VERBOSE_EX(filename, func, line, "Async result was %d", res);                                                                                                              \
     return send_result_async(c, b, a, res);                                                                                                                                                        \
