@@ -522,10 +522,6 @@ DECL_FUNCTION(FSStatus, FSGetFreeSpaceSizeAsync, FSClient *client, FSCmdBlock *b
     return real_FSGetFreeSpaceSizeAsync(client, block, path, outSize, errorMask, asyncData);
 }
 
-DECL_FUNCTION(void, OSSetExceptionCallbackEx, void) {
-    return;
-}
-
 function_replacement_data_t fs_file_function_replacements[] = {
         REPLACE_FUNCTION(FSOpenFile, LIBRARY_COREINIT, FSOpenFile),
         REPLACE_FUNCTION(FSOpenFileAsync, LIBRARY_COREINIT, FSOpenFileAsync),
@@ -570,7 +566,6 @@ function_replacement_data_t fs_file_function_replacements[] = {
         REPLACE_FUNCTION(FSFlushFileAsync, LIBRARY_COREINIT, FSFlushFileAsync),
 
         REPLACE_FUNCTION(FSChangeModeAsync, LIBRARY_COREINIT, FSChangeModeAsync),
-        REPLACE_FUNCTION(OSSetExceptionCallbackEx, LIBRARY_COREINIT, OSSetExceptionCallbackEx),
 
         //REPLACE_FUNCTION(FSGetFreeSpaceSizeAsync, LIBRARY_COREINIT, FSGetFreeSpaceSizeAsync),
         //REPLACE_FUNCTION_VIA_ADDRESS(FSGetFreeSpaceSizeAsync, LIBRARY_COREINIT, 0x0A000000 + 0x0256079c),
