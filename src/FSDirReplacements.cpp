@@ -76,7 +76,7 @@ DECL_FUNCTION(FSStatus, FSReadDirAsync, FSClient *client, FSCmdBlock *block, FSD
 }
 
 DECL_FUNCTION(FSStatus, FSCloseDir, FSClient *client, FSCmdBlock *block, FSDirectoryHandle handle, FSErrorFlag errorMask) {
-    DEBUG_FUNCTION_LINE_VERBOSE("", errorMask);
+    DEBUG_FUNCTION_LINE_VERBOSE("");
     if (isForceRealFunction(errorMask)) {
         return real_FSCloseDir(client, block, handle, errorMask);
     }
