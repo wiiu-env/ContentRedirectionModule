@@ -2,9 +2,6 @@
 #include "FSFileReplacements.h"
 #include "FileUtils.h"
 #include "utils/logger.h"
-#include <coreinit/memorymap.h>
-#include <coreinit/title.h>
-#include <sysapp/title.h>
 #include <wums.h>
 
 WUMS_MODULE_EXPORT_NAME("homebrew_content_redirection");
