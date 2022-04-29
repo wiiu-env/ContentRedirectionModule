@@ -1,5 +1,6 @@
 #include "FSWrapperMergeDirsWithParent.h"
 #include "utils/logger.h"
+#include "utils/utils.h"
 #include <coreinit/cache.h>
 #include <coreinit/debug.h>
 #include <coreinit/filesystem.h>
@@ -13,7 +14,7 @@ FSStatus FSWrapperMergeDirsWithParent::FSOpenDirWrapper(const char *path,
             DEBUG_FUNCTION_LINE_ERR("[%s] No valid dir handle %08X", getName().c_str(), *handle);
             return FS_STATUS_FATAL_ERROR;
         }
-        auto *dirHandle = getDirExFromHandle(*handle);
+        auto dirHandle = getDirExFromHandle(*handle);
         if (dirHandle != nullptr) {
             dirHandle->readResultCapacity        = 0;
             dirHandle->readResultNumberOfEntries = 0;
@@ -21,9 +22,9 @@ FSStatus FSWrapperMergeDirsWithParent::FSOpenDirWrapper(const char *path,
 
             if (pFSClient && pCmdBlock) {
                 FSDirectoryHandle realHandle = 0;
-                DEBUG_FUNCTION_LINE_VERBOSE("[%s] Call real_FSOpenDir for %s with error_flag %08X", getName().c_str(), path, (uint32_t) this);
+                DEBUG_FUNCTION_LINE_VERBOSE("[%s] Call real_FSOpenDir for %s with error_flag %08X", getName().c_str(), path, this->getHandle());
                 // Call FSOpen with "this" as errorFlag call FSOpen for "parent" layers only.
-                if (FSOpenDir(pFSClient, pCmdBlock, path, &realHandle, (FSErrorFlag) (uint32_t) this) == FS_STATUS_OK) {
+                if (FSOpenDir(pFSClient, pCmdBlock, path, &realHandle, (FSErrorFlag) this->getHandle()) == FS_STATUS_OK) {
                     dirHandle->realDirHandle = realHandle;
                 } else {
                     DEBUG_FUNCTION_LINE_VERBOSE("[%s] Failed to open real dir %s", getName().c_str(), path);
@@ -49,12 +50,12 @@ FSStatus FSWrapperMergeDirsWithParent::FSReadDirWrapper(FSDirectoryHandle handle
                 DEBUG_FUNCTION_LINE_ERR("[%s] No valid dir handle %08X", getName().c_str(), handle);
                 return FS_STATUS_FATAL_ERROR;
             }
-            auto *dirHandle = getDirExFromHandle(handle);
+            auto dirHandle = getDirExFromHandle(handle);
             if (res == FS_STATUS_OK) {
                 if (dirHandle->readResultCapacity == 0) {
                     dirHandle->readResult = (FSDirectoryEntryEx *) malloc(sizeof(FSDirectoryEntryEx));
                     if (dirHandle->readResult == nullptr) {
-                        DEBUG_FUNCTION_LINE_ERR("[%s] Failed to alloc memory for %08X (handle %08X)", getName().c_str(), dirHandle, handle);
+                        DEBUG_FUNCTION_LINE_ERR("[%s] Failed to alloc memory for %08X (handle %08X)", getName().c_str(), dirHandle.get(), handle);
                         OSFatal("Failed to alloc memory for read result");
                     }
                     dirHandle->readResultCapacity = 1;
@@ -65,7 +66,7 @@ FSStatus FSWrapperMergeDirsWithParent::FSReadDirWrapper(FSDirectoryHandle handle
                     dirHandle->readResult         = (FSDirectoryEntryEx *) realloc(dirHandle->readResult, newCapacity * sizeof(FSDirectoryEntryEx));
                     dirHandle->readResultCapacity = newCapacity;
                     if (dirHandle->readResult == nullptr) {
-                        DEBUG_FUNCTION_LINE_ERR("[%s] Failed to realloc memory for %08X (handle %08X)", getName().c_str(), dirHandle, handle);
+                        DEBUG_FUNCTION_LINE_ERR("[%s] Failed to realloc memory for %08X (handle %08X)", getName().c_str(), dirHandle.get(), handle);
                         OSFatal("Failed to alloc memory for read result");
                     }
                 }
@@ -92,8 +93,8 @@ FSStatus FSWrapperMergeDirsWithParent::FSReadDirWrapper(FSDirectoryHandle handle
                         FSDirectoryEntry realDirEntry;
                         FSStatus readDirResult;
                         while (true) {
-                            DEBUG_FUNCTION_LINE_VERBOSE("[%s] Call real_FSReadDir for %08X with error_flag %08X", getName().c_str(), dirHandle->realDirHandle, (uint32_t) this);
-                            readDirResult = FSReadDir(pFSClient, pCmdBlock, dirHandle->realDirHandle, &realDirEntry, (FSErrorFlag) (uint32_t) this);
+                            DEBUG_FUNCTION_LINE_VERBOSE("[%s] Call real_FSReadDir for %08X with error_flag %08X", getName().c_str(), dirHandle->realDirHandle, (uint32_t) this->getHandle());
+                            readDirResult = FSReadDir(pFSClient, pCmdBlock, dirHandle->realDirHandle, &realDirEntry, (FSErrorFlag) (uint32_t) this->getHandle());
                             if (readDirResult == FS_STATUS_OK) {
                                 bool found       = false;
                                 auto nameDeleted = deletePrefix + realDirEntry.name;
@@ -146,11 +147,11 @@ FSStatus FSWrapperMergeDirsWithParent::FSCloseDirWrapper(FSDirectoryHandle handl
             DEBUG_FUNCTION_LINE_ERR("[%s] No valid dir handle %08X", getName().c_str(), handle);
             return FS_STATUS_FATAL_ERROR;
         }
-        auto *dirHandle = getDirExFromHandle(handle);
+        auto dirHandle = getDirExFromHandle(handle);
         if (dirHandle->realDirHandle != 0) {
             if (pFSClient && pCmdBlock) {
-                DEBUG_FUNCTION_LINE_VERBOSE("[%s] Call FSCloseDir for %08X with error_flag %08X (this)", getName().c_str(), dirHandle->realDirHandle, (uint32_t) this);
-                auto realResult = FSCloseDir(pFSClient, pCmdBlock, dirHandle->realDirHandle, (FSErrorFlag) (uint32_t) this);
+                DEBUG_FUNCTION_LINE_VERBOSE("[%s] Call FSCloseDir for %08X with error_flag %08X (this)", getName().c_str(), dirHandle->realDirHandle, (uint32_t) this->getHandle());
+                auto realResult = FSCloseDir(pFSClient, pCmdBlock, dirHandle->realDirHandle, (FSErrorFlag) (uint32_t) this->getHandle());
                 if (realResult == FS_STATUS_OK) {
                     dirHandle->realDirHandle = 0;
                 } else {
@@ -181,7 +182,7 @@ FSStatus FSWrapperMergeDirsWithParent::FSRewindDirWrapper(FSDirectoryHandle hand
             DEBUG_FUNCTION_LINE_ERR("[%s] No valid dir handle %08X", getName().c_str(), handle);
             return FS_STATUS_FATAL_ERROR;
         }
-        auto *dirHandle = getDirExFromHandle(handle);
+        auto dirHandle = getDirExFromHandle(handle);
         if (dirHandle->readResult != nullptr) {
             dirHandle->readResultNumberOfEntries = 0;
 #pragma GCC diagnostic push
@@ -192,8 +193,8 @@ FSStatus FSWrapperMergeDirsWithParent::FSRewindDirWrapper(FSDirectoryHandle hand
 
         if (dirHandle->realDirHandle != 0) {
             if (pFSClient && pCmdBlock) {
-                DEBUG_FUNCTION_LINE_VERBOSE("[%s] Call real_FSRewindDir for %08X with error_flag %08X (this)", getName().c_str(), dirHandle->realDirHandle, (uint32_t) this);
-                if (FSRewindDir(pFSClient, pCmdBlock, dirHandle->realDirHandle, (FSErrorFlag) (uint32_t) this) == FS_STATUS_OK) {
+                DEBUG_FUNCTION_LINE_VERBOSE("[%s] Call real_FSRewindDir for %08X with error_flag %08X (this->getHandle())", getName().c_str(), dirHandle->realDirHandle, (uint32_t) this->getHandle());
+                if (FSRewindDir(pFSClient, pCmdBlock, dirHandle->realDirHandle, (FSErrorFlag) (uint32_t) this->getHandle()) == FS_STATUS_OK) {
                     dirHandle->realDirHandle = 0;
                 } else {
                     DEBUG_FUNCTION_LINE_ERR("[%s] Failed to rewind dir for realDirHandle %08X", getName().c_str(), dirHandle->realDirHandle);
@@ -242,16 +243,16 @@ void FSWrapperMergeDirsWithParent::freeFSClient() {
     pCmdBlock = nullptr;
 }
 
-DirInfoEx *FSWrapperMergeDirsWithParent::getDirExFromHandle(FSDirectoryHandle handle) {
-    auto *dir = getDirFromHandle(handle);
-    auto res  = dynamic_cast<DirInfoEx *>(dir);
-    if (res == nullptr) {
-        DEBUG_FUNCTION_LINE_ERR("[%s] dynamic_cast<DirInfoEx *>(%08X)", getName().c_str(), handle);
-        OSFatal("dynamic_cast<DirInfoEx *> failed");
+std::shared_ptr<DirInfoEx> FSWrapperMergeDirsWithParent::getDirExFromHandle(FSDirectoryHandle handle) {
+    auto dir = std::dynamic_pointer_cast<DirInfoEx>(getDirFromHandle(handle));
+
+    if (!dir) {
+        DEBUG_FUNCTION_LINE_ERR("[%s] dynamic_pointer_cast<DirInfoEx *>(%08X) failed", getName().c_str(), handle);
+        OSFatal("dynamic_pointer_cast<DirInfoEx *> failed");
     }
-    return res;
+    return dir;
 }
 
-DirInfo *FSWrapperMergeDirsWithParent::getNewDirHandle() {
-    return new (std::nothrow) DirInfoEx;
+std::shared_ptr<DirInfo> FSWrapperMergeDirsWithParent::getNewDirHandle() {
+    return make_shared_nothrow<DirInfoEx>();
 }

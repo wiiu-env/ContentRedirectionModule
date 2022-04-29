@@ -23,7 +23,7 @@ public:
 
     FSStatus FSRewindDirWrapper(FSDirectoryHandle handle) override;
 
-    DirInfo *getNewDirHandle() override;
+    std::shared_ptr<DirInfo> getNewDirHandle() override;
 
     bool SkipDeletedFilesInReadDir() override;
 
@@ -32,5 +32,5 @@ private:
     FSClient *pFSClient;
     FSCmdBlock *pCmdBlock;
 
-    DirInfoEx *getDirExFromHandle(FSDirectoryHandle handle);
+    std::shared_ptr<DirInfoEx> getDirExFromHandle(FSDirectoryHandle handle);
 };

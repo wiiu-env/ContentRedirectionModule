@@ -2,6 +2,7 @@
 #include "FileUtils.h"
 #include "utils/StringTools.h"
 #include "utils/logger.h"
+#include "utils/utils.h"
 #include <algorithm>
 #include <coreinit/cache.h>
 #include <coreinit/debug.h>
@@ -23,15 +24,15 @@ FSStatus FSWrapper::FSOpenDirWrapper(const char *path, FSDirectoryHandle *handle
 
     FSStatus result = FS_STATUS_OK;
 
-    auto *dirHandle = getNewDirHandle();
-    if (dirHandle != nullptr) {
+    auto dirHandle = getNewDirHandle();
+    if (dirHandle) {
         DIR *dir;
         auto newPath = GetNewPath(path);
 
         if ((dir = opendir(newPath.c_str()))) {
 
             dirHandle->dir    = dir;
-            dirHandle->handle = (((uint32_t) dirHandle) & 0x0FFFFFFF) | 0x30000000;
+            dirHandle->handle = (((uint32_t) dirHandle.get()) & 0x0FFFFFFF) | 0x30000000;
             *handle           = dirHandle->handle;
 
             dirHandle->path[0] = '\0';
@@ -42,7 +43,6 @@ FSStatus FSWrapper::FSOpenDirWrapper(const char *path, FSDirectoryHandle *handle
                 OSMemoryBarrier();
             }
         } else {
-            delete dirHandle;
             result = FS_STATUS_NOT_FOUND;
         }
     } else {
@@ -56,7 +56,7 @@ FSStatus FSWrapper::FSReadDirWrapper(FSDirectoryHandle handle, FSDirectoryEntry 
     if (!isValidDirHandle(handle)) {
         return FS_STATUS_FORCE_PARENT_LAYER;
     }
-    auto *dirHandle = getDirFromHandle(handle);
+    auto dirHandle = getDirFromHandle(handle);
 
     DIR *dir = dirHandle->dir;
 
@@ -104,7 +104,7 @@ FSStatus FSWrapper::FSCloseDirWrapper(FSDirectoryHandle handle) {
     if (!isValidDirHandle(handle)) {
         return FS_STATUS_FORCE_PARENT_LAYER;
     }
-    auto *dirHandle = getDirFromHandle(handle);
+    auto dirHandle = getDirFromHandle(handle);
 
     DIR *dir = dirHandle->dir;
 
@@ -123,7 +123,7 @@ FSStatus FSWrapper::FSRewindDirWrapper(FSDirectoryHandle handle) {
     if (!isValidDirHandle(handle)) {
         return FS_STATUS_FORCE_PARENT_LAYER;
     }
-    auto *dirHandle = getDirFromHandle(handle);
+    auto dirHandle = getDirFromHandle(handle);
 
     DIR *dir = dirHandle->dir;
 
@@ -196,12 +196,12 @@ FSStatus FSWrapper::FSOpenFileWrapper(const char *path, const char *mode, FSFile
     DEBUG_FUNCTION_LINE_VERBOSE("[%s] Open %s (as %s) mode %s,", getName().c_str(), path, newPath.c_str(), mode);
     int32_t fd = open(newPath.c_str(), _mode);
     if (fd >= 0) {
-        auto *fileHandle = getNewFileHandle();
+        auto fileHandle = getNewFileHandle();
         if (fileHandle) {
             std::lock_guard<std::mutex> lock(openFilesMutex);
             DEBUG_FUNCTION_LINE_VERBOSE("[%s] Opened %s (as %s) mode %s, fd %d (%08X)", getName().c_str(), path, newPath.c_str(), mode, fd, handle);
 
-            fileHandle->handle = (((uint32_t) fileHandle) & 0x0FFFFFFF) | 0x30000000;
+            fileHandle->handle = (((uint32_t) fileHandle.get()) & 0x0FFFFFFF) | 0x30000000;
             *handle            = fileHandle->handle;
             fileHandle->fd     = fd;
 
@@ -226,7 +226,7 @@ FSStatus FSWrapper::FSCloseFileWrapper(FSFileHandle handle) {
         return FS_STATUS_FORCE_PARENT_LAYER;
     }
 
-    auto *fileHandle = getFileFromHandle(handle);
+    auto fileHandle = getFileFromHandle(handle);
 
     int real_fd = fileHandle->fd;
 
@@ -301,7 +301,7 @@ FSStatus FSWrapper::FSGetStatFileWrapper(FSFileHandle handle, FSStat *stats) {
     if (!isValidFileHandle(handle)) {
         return FS_STATUS_FORCE_PARENT_LAYER;
     }
-    auto *fileHandle = getFileFromHandle(handle);
+    auto fileHandle = getFileFromHandle(handle);
 
     int real_fd = fileHandle->fd;
 
@@ -339,8 +339,8 @@ FSStatus FSWrapper::FSReadFileWrapper(void *buffer, uint32_t size, uint32_t coun
         return FS_STATUS_FATAL_ERROR;
     }
 
-    auto *fileHandle = getFileFromHandle(handle);
-    int real_fd      = fileHandle->fd;
+    auto fileHandle = getFileFromHandle(handle);
+    int real_fd     = fileHandle->fd;
 
     DEBUG_FUNCTION_LINE_VERBOSE("[%s] Read %u bytes of fd %08X (FSFileHandle %08X) to buffer %08X", getName().c_str(), size * count, real_fd, handle, buffer);
     int32_t read = readIntoBuffer(real_fd, buffer, size, count);
@@ -375,7 +375,7 @@ FSStatus FSWrapper::FSSetPosFileWrapper(FSFileHandle handle, uint32_t pos) {
     if (!isValidFileHandle(handle)) {
         return FS_STATUS_FORCE_PARENT_LAYER;
     }
-    auto *fileHandle = getFileFromHandle(handle);
+    auto fileHandle = getFileFromHandle(handle);
 
     FSStatus result = FS_STATUS_OK;
 
@@ -396,7 +396,7 @@ FSStatus FSWrapper::FSGetPosFileWrapper(FSFileHandle handle, uint32_t *pos) {
     if (!isValidFileHandle(handle)) {
         return FS_STATUS_FORCE_PARENT_LAYER;
     }
-    auto *fileHandle = getFileFromHandle(handle);
+    auto fileHandle = getFileFromHandle(handle);
 
     FSStatus result = FS_STATUS_OK;
 
@@ -417,7 +417,7 @@ FSStatus FSWrapper::FSIsEofWrapper(FSFileHandle handle) {
     if (!isValidFileHandle(handle)) {
         return FS_STATUS_FORCE_PARENT_LAYER;
     }
-    auto *fileHandle = getFileFromHandle(handle);
+    auto fileHandle = getFileFromHandle(handle);
 
     FSStatus result;
 
@@ -453,7 +453,7 @@ FSStatus FSWrapper::FSTruncateFileWrapper(FSFileHandle handle) {
         return FS_STATUS_ACCESS_ERROR;
     }
 
-    auto *fileHandle = getFileFromHandle(handle);
+    auto fileHandle = getFileFromHandle(handle);
 
     FSStatus result = FS_STATUS_OK;
 
@@ -483,7 +483,7 @@ FSStatus FSWrapper::FSWriteFileWrapper(uint8_t *buffer, uint32_t size, uint32_t 
         DEBUG_FUNCTION_LINE_VERBOSE("[%s] Tried to write to fd %d (handle %08X) but layer is not writeable", getName().c_str(), getFileFromHandle(handle)->fd, handle);
         return FS_STATUS_ACCESS_ERROR;
     }
-    auto *fileHandle = getFileFromHandle(handle);
+    auto fileHandle = getFileFromHandle(handle);
 
     FSStatus result;
 
@@ -572,8 +572,8 @@ FSStatus FSWrapper::FSFlushFileWrapper(FSFileHandle handle) {
         return FS_STATUS_ACCESS_ERROR;
     }
 
-    auto *fileHandle = getFileFromHandle(handle);
-    int real_fd      = fileHandle->fd;
+    auto fileHandle = getFileFromHandle(handle);
+    int real_fd     = fileHandle->fd;
 
     DEBUG_FUNCTION_LINE_VERBOSE("[%s] fsync fd %08X (FSFileHandle %08X)", real_fd, handle);
     FSStatus result = FS_STATUS_OK;
@@ -608,7 +608,7 @@ std::string FSWrapper::GetNewPath(const std::string_view &path) {
     auto subStr = path.substr(this->pPathToReplace.length());
     auto res    = string_format("%s%.*s", this->pReplacePathWith.c_str(), int(subStr.length()), subStr.data());
 
-    std::replace(res.begin(), res.end(), '/', '/');
+    std::replace(res.begin(), res.end(), '\\', '/');
 
     uint32_t length = res.size();
 
@@ -627,23 +627,23 @@ std::string FSWrapper::GetNewPath(const std::string_view &path) {
 
 bool FSWrapper::isValidFileHandle(FSFileHandle handle) {
     std::lock_guard<std::mutex> lock(openFilesMutex);
-    return std::ranges::any_of(openFiles, [handle](FileInfo *val) { return val->handle == handle; });
+    return std::ranges::any_of(openFiles, [handle](auto &cur) { return cur->handle == handle; });
 }
 
 bool FSWrapper::isValidDirHandle(FSDirectoryHandle handle) {
     std::lock_guard<std::mutex> lock(openDirsMutex);
-    return std::ranges::any_of(openDirs, [handle](DirInfo *val) { return val->handle == handle; });
+    return std::ranges::any_of(openDirs, [handle](auto &cur) { return cur->handle == handle; });
 }
 
-FileInfo *FSWrapper::getNewFileHandle() {
-    return new (std::nothrow) FileInfo;
+std::shared_ptr<FileInfo> FSWrapper::getNewFileHandle() {
+    return make_shared_nothrow<FileInfo>();
 }
 
-DirInfo *FSWrapper::getNewDirHandle() {
-    return new (std::nothrow) DirInfo;
+std::shared_ptr<DirInfo> FSWrapper::getNewDirHandle() {
+    return make_shared_nothrow<DirInfo>();
 }
 
-FileInfo *FSWrapper::getFileFromHandle(FSFileHandle handle) {
+std::shared_ptr<FileInfo> FSWrapper::getFileFromHandle(FSFileHandle handle) {
     std::lock_guard<std::mutex> lock(openFilesMutex);
     for (auto &file : openFiles) {
         if (file->handle == handle) {
@@ -655,7 +655,7 @@ FileInfo *FSWrapper::getFileFromHandle(FSFileHandle handle) {
     return nullptr;
 }
 
-DirInfo *FSWrapper::getDirFromHandle(FSDirectoryHandle handle) {
+std::shared_ptr<DirInfo> FSWrapper::getDirFromHandle(FSDirectoryHandle handle) {
     std::lock_guard<std::mutex> lock(openDirsMutex);
     for (auto &dir : openDirs) {
         if (dir->handle == handle) {
@@ -668,43 +668,13 @@ DirInfo *FSWrapper::getDirFromHandle(FSDirectoryHandle handle) {
 }
 
 void FSWrapper::deleteDirHandle(FSDirectoryHandle handle) {
-    std::lock_guard<std::mutex> lock(openDirsMutex);
-    bool found = false;
-    int count  = 0;
-    DirInfo *info;
-    for (auto &val : openDirs) {
-        if ((FSDirectoryHandle) val->handle == handle) {
-            found = true;
-            info  = val;
-            break;
-        }
-        count++;
-    }
-    if (found) {
-        openDirs.erase(openDirs.begin() + count);
-        delete info;
-    } else {
+    if (!remove_locked_first_if(openDirsMutex, openDirs, [handle](auto &cur) { return (FSFileHandle) cur->handle == handle; })) {
         DEBUG_FUNCTION_LINE_ERR("[%s] Delete failed because the handle %08X was not found", getName().c_str(), handle);
     }
 }
 
 void FSWrapper::deleteFileHandle(FSFileHandle handle) {
-    std::lock_guard<std::mutex> lock(openFilesMutex);
-    bool found = false;
-    auto count = 0;
-    FileInfo *info;
-    for (auto &val : openFiles) {
-        if ((FSFileHandle) val->handle == handle) {
-            found = true;
-            info  = val;
-            break;
-        }
-        count++;
-    }
-    if (found) {
-        openFiles.erase(openFiles.begin() + count);
-        delete info;
-    } else {
+    if (!remove_locked_first_if(openFilesMutex, openFiles, [handle](auto &cur) { return (FSFileHandle) cur->handle == handle; })) {
         DEBUG_FUNCTION_LINE_ERR("[%s] Delete failed because the handle %08X was not found", getName().c_str(), handle);
     }
 }

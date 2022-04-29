@@ -14,7 +14,7 @@ std::mutex workingDirMutex;
 std::map<FSClient *, std::string> workingDirs;
 
 std::mutex fsLayerMutex;
-std::vector<IFSWrapper *> fsLayers;
+std::vector<std::unique_ptr<IFSWrapper>> fsLayers;
 
 std::string getFullPathForClient(FSClient *pClient, char *path) {
     std::string res;
@@ -47,10 +47,7 @@ void clearFSLayer() {
         workingDirs.clear();
     }
     {
-        std::lock_guard<std::mutex> layerlock(fsLayerMutex);
-        for (auto &layer : fsLayers) {
-            delete layer;
-        }
+        std::lock_guard<std::mutex> layerLock(fsLayerMutex);
         fsLayers.clear();
     }
 }
@@ -61,15 +58,15 @@ void clearFSLayer() {
 FSStatus doForLayer(FSClient *client,
                     FSErrorFlag errorMask,
                     const std::function<FSStatus(FSErrorFlag errorMask)> &real_function,
-                    const std::function<FSStatus(IFSWrapper *layer)> &layer_callback,
-                    const std::function<FSStatus(IFSWrapper *layer, FSStatus)> &result_handler) {
+                    const std::function<FSStatus(std::unique_ptr<IFSWrapper> &layer)> &layer_callback,
+                    const std::function<FSStatus(std::unique_ptr<IFSWrapper> &layer, FSStatus)> &result_handler) {
     FSErrorFlag realErrorMask = errorMask;
 
     std::lock_guard<std::mutex> lock(fsLayerMutex);
     if (!fsLayers.empty()) {
         uint32_t startIndex = fsLayers.size();
         for (uint32_t i = fsLayers.size(); i > 0; i--) {
-            if ((uint32_t) fsLayers[i - 1] == errorMask) {
+            if ((uint32_t) fsLayers[i - 1]->getHandle() == errorMask) {
                 startIndex    = i - 1;
                 realErrorMask = FS_ERROR_FLAG_ALL;
                 break;
@@ -78,7 +75,7 @@ FSStatus doForLayer(FSClient *client,
 
         if (startIndex > 0) {
             for (uint32_t i = startIndex; i > 0; i--) {
-                auto layer = fsLayers[i - 1];
+                auto &layer = fsLayers[i - 1];
                 if (!layer->isActive()) {
                     continue;
                 }
