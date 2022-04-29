@@ -136,6 +136,10 @@ public:
 
     virtual void deleteFileHandle(FSFileHandle handle) = 0;
 
+    uint32_t getHandle() {
+        return (uint32_t) this;
+    }
+
 private:
     bool pIsActive = true;
 

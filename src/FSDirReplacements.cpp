@@ -14,10 +14,9 @@ DECL_FUNCTION(FSStatus, FSOpenDir, FSClient *client, FSCmdBlock *block, char *pa
             client,
             errorMask,
             [c = client, b = block, h = handle, p = path](FSErrorFlag realErrorMask) -> FSStatus {
-                auto res = real_FSOpenDir(c, b, p, h, realErrorMask);
-                return res;
+                return real_FSOpenDir(c, b, p, h, realErrorMask);
             },
-            [f = getFullPathForClient(client, path), h = handle](IFSWrapper *layer) -> FSStatus {
+            [f = getFullPathForClient(client, path), h = handle](std::unique_ptr<IFSWrapper> &layer) -> FSStatus {
                 return layer->FSOpenDirWrapper(f.c_str(), h);
             },
             SYNC_RESULT_HANDLER);
@@ -35,7 +34,7 @@ DECL_FUNCTION(FSStatus, FSOpenDirAsync, FSClient *client, FSCmdBlock *block, cha
             [c = client, b = block, h = handle, p = path, a = asyncData](FSErrorFlag realErrorMask) -> FSStatus {
                 return real_FSOpenDirAsync(c, b, p, h, realErrorMask, a);
             },
-            [f = getFullPathForClient(client, path), h = handle](IFSWrapper *layer) -> FSStatus {
+            [f = getFullPathForClient(client, path), h = handle](std::unique_ptr<IFSWrapper> &layer) -> FSStatus {
                 return layer->FSOpenDirWrapper(f.c_str(), h);
             },
             ASYNC_RESULT_HANDLER);
@@ -52,7 +51,7 @@ DECL_FUNCTION(FSStatus, FSReadDir, FSClient *client, FSCmdBlock *block, FSDirect
             [c = client, b = block, h = handle, e = entry](FSErrorFlag realErrorMask) -> FSStatus {
                 return real_FSReadDir(c, b, h, e, realErrorMask);
             },
-            [h = handle, e = entry](IFSWrapper *layer) -> FSStatus {
+            [h = handle, e = entry](std::unique_ptr<IFSWrapper> &layer) -> FSStatus {
                 return layer->FSReadDirWrapper(h, e);
             },
             SYNC_RESULT_HANDLER);
@@ -69,7 +68,7 @@ DECL_FUNCTION(FSStatus, FSReadDirAsync, FSClient *client, FSCmdBlock *block, FSD
             [c = client, b = block, h = handle, e = entry, a = asyncData](FSErrorFlag realErrorMask) -> FSStatus {
                 return real_FSReadDirAsync(c, b, h, e, realErrorMask, a);
             },
-            [h = handle, e = entry](IFSWrapper *layer) -> FSStatus {
+            [h = handle, e = entry](std::unique_ptr<IFSWrapper> &layer) -> FSStatus {
                 return layer->FSReadDirWrapper(h, e);
             },
             ASYNC_RESULT_HANDLER);
@@ -86,10 +85,10 @@ DECL_FUNCTION(FSStatus, FSCloseDir, FSClient *client, FSCmdBlock *block, FSDirec
             [c = client, b = block, h = handle](FSErrorFlag realErrorMask) -> FSStatus {
                 return real_FSCloseDir(c, b, h, realErrorMask);
             },
-            [h = handle](IFSWrapper *layer) -> FSStatus {
+            [h = handle](std::unique_ptr<IFSWrapper> &layer) -> FSStatus {
                 return layer->FSCloseDirWrapper(h);
             },
-            [h = handle, filename = __FILENAME__, func = __FUNCTION__, line = __LINE__](IFSWrapper *layer, FSStatus res) -> FSStatus {
+            [h = handle, filename = __FILENAME__, func = __FUNCTION__, line = __LINE__](std::unique_ptr<IFSWrapper> &layer, FSStatus res) -> FSStatus {
                 if (layer->isValidDirHandle(h)) {
                     layer->deleteDirHandle(h);
                 } else {
@@ -111,10 +110,10 @@ DECL_FUNCTION(FSStatus, FSCloseDirAsync, FSClient *client, FSCmdBlock *block, FS
             [c = client, b = block, h = handle, a = asyncData](FSErrorFlag realErrorMask) -> FSStatus {
                 return real_FSCloseDirAsync(c, b, h, realErrorMask, a);
             },
-            [h = handle](IFSWrapper *layer) -> FSStatus {
+            [h = handle](std::unique_ptr<IFSWrapper> &layer) -> FSStatus {
                 return layer->FSCloseDirWrapper(h);
             },
-            [c = client, b = block, h = handle, a = asyncData, filename = __FILENAME__, func = __FUNCTION__, line = __LINE__](IFSWrapper *layer, FSStatus res) -> FSStatus {
+            [c = client, b = block, h = handle, a = asyncData, filename = __FILENAME__, func = __FUNCTION__, line = __LINE__](std::unique_ptr<IFSWrapper> &layer, FSStatus res) -> FSStatus {
                 if (layer->isValidDirHandle(h)) {
                     layer->deleteDirHandle(h);
                 } else {
@@ -136,7 +135,7 @@ DECL_FUNCTION(FSStatus, FSRewindDir, FSClient *client, FSCmdBlock *block, FSDire
             [c = client, b = block, h = handle](FSErrorFlag realErrorMask) -> FSStatus {
                 return real_FSRewindDir(c, b, h, realErrorMask);
             },
-            [h = handle](IFSWrapper *layer) -> FSStatus {
+            [h = handle](std::unique_ptr<IFSWrapper> &layer) -> FSStatus {
                 return layer->FSRewindDirWrapper(h);
             },
             SYNC_RESULT_HANDLER);
@@ -153,7 +152,7 @@ DECL_FUNCTION(FSStatus, FSRewindDirAsync, FSClient *client, FSCmdBlock *block, F
             [c = client, b = block, h = handle, a = asyncData](FSErrorFlag realErrorMask) -> FSStatus {
                 return real_FSRewindDirAsync(c, b, h, realErrorMask, a);
             },
-            [h = handle](IFSWrapper *layer) -> FSStatus {
+            [h = handle](std::unique_ptr<IFSWrapper> &layer) -> FSStatus {
                 return layer->FSRewindDirWrapper(h);
             },
             ASYNC_RESULT_HANDLER);
@@ -170,7 +169,7 @@ DECL_FUNCTION(FSStatus, FSMakeDir, FSClient *client, FSCmdBlock *block, char *pa
             [c = client, b = block, p = path](FSErrorFlag realErrorMask) -> FSStatus {
                 return real_FSMakeDir(c, b, p, realErrorMask);
             },
-            [f = getFullPathForClient(client, path)](IFSWrapper *layer) -> FSStatus {
+            [f = getFullPathForClient(client, path)](std::unique_ptr<IFSWrapper> &layer) -> FSStatus {
                 return layer->FSMakeDirWrapper(f.c_str());
             },
             SYNC_RESULT_HANDLER);
@@ -187,7 +186,7 @@ DECL_FUNCTION(FSStatus, FSMakeDirAsync, FSClient *client, FSCmdBlock *block, cha
             [c = client, b = block, p = path, a = asyncData](FSErrorFlag realErrorMask) -> FSStatus {
                 return real_FSMakeDirAsync(c, b, p, realErrorMask, a);
             },
-            [f = getFullPathForClient(client, path)](IFSWrapper *layer) -> FSStatus {
+            [f = getFullPathForClient(client, path)](std::unique_ptr<IFSWrapper> &layer) -> FSStatus {
                 return layer->FSMakeDirWrapper(f.c_str());
             },
             ASYNC_RESULT_HANDLER);

@@ -22,18 +22,12 @@ public:
         std::replace(pReplacePathWith.begin(), pReplacePathWith.end(), '\\', '/');
     }
     ~FSWrapper() override {
-        if (!openFiles.empty()) {
-            DEBUG_FUNCTION_LINE_ERR("Clean leaked fileInfos");
-            for (auto &file : openFiles) {
-                delete file;
-            }
+        {
+            std::lock_guard<std::mutex> lockFiles(openFilesMutex);
             openFiles.clear();
         }
-        if (!openDirs.empty()) {
-            DEBUG_FUNCTION_LINE_ERR("Clean leaked dirInfos");
-            for (auto &dir : openDirs) {
-                delete dir;
-            }
+        {
+            std::lock_guard<std::mutex> lockDirs(openDirsMutex);
             openDirs.clear();
         }
     }
@@ -108,8 +102,8 @@ protected:
 
     std::string GetNewPath(const std::string_view &path);
 
-    DirInfo *getDirFromHandle(FSDirectoryHandle handle);
-    FileInfo *getFileFromHandle(FSFileHandle handle);
+    std::shared_ptr<DirInfo> getDirFromHandle(FSDirectoryHandle handle);
+    std::shared_ptr<FileInfo> getFileFromHandle(FSFileHandle handle);
 
     bool isValidDirHandle(FSDirectoryHandle handle) override;
     bool isValidFileHandle(FSFileHandle handle) override;
@@ -119,8 +113,8 @@ protected:
 
     virtual bool CheckFileShouldBeIgnored(std::string &path);
 
-    virtual FileInfo *getNewFileHandle();
-    virtual DirInfo *getNewDirHandle();
+    virtual std::shared_ptr<FileInfo> getNewFileHandle();
+    virtual std::shared_ptr<DirInfo> getNewDirHandle();
 
     virtual bool SkipDeletedFilesInReadDir();
 
@@ -134,6 +128,6 @@ private:
     bool pIsWriteable = false;
     std::mutex openFilesMutex;
     std::mutex openDirsMutex;
-    std::vector<FileInfo *> openFiles;
-    std::vector<DirInfo *> openDirs;
+    std::vector<std::shared_ptr<FileInfo>> openFiles;
+    std::vector<std::shared_ptr<DirInfo>> openDirs;
 };

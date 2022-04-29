@@ -8,16 +8,16 @@
 #include <string>
 
 extern std::mutex fsLayerMutex;
-extern std::vector<IFSWrapper *> fsLayers;
+extern std::vector<std::unique_ptr<IFSWrapper>> fsLayers;
 
-#define SYNC_RESULT_HANDLER [filename = __FILENAME__, func = __FUNCTION__, line = __LINE__]([[maybe_unused]] IFSWrapper *layer, FSStatus res) -> FSStatus { \
-    DEBUG_FUNCTION_LINE_VERBOSE_EX(filename, func, line, "Sync result was %d", res);                                                                        \
-    return res;                                                                                                                                             \
+#define SYNC_RESULT_HANDLER [filename = __FILENAME__, func = __FUNCTION__, line = __LINE__]([[maybe_unused]] std::unique_ptr<IFSWrapper> &layer, FSStatus res) -> FSStatus { \
+    DEBUG_FUNCTION_LINE_VERBOSE_EX(filename, func, line, "Sync result was %d", res);                                                                                         \
+    return res;                                                                                                                                                              \
 }
 
-#define ASYNC_RESULT_HANDLER [c = client, b = block, a = asyncData, filename = __FILENAME__, func = __FUNCTION__, line = __LINE__]([[maybe_unused]] IFSWrapper *layer, FSStatus res) -> FSStatus { \
-    DEBUG_FUNCTION_LINE_VERBOSE_EX(filename, func, line, "Async result was %d", res);                                                                                                              \
-    return send_result_async(c, b, a, res);                                                                                                                                                        \
+#define ASYNC_RESULT_HANDLER [c = client, b = block, a = asyncData, filename = __FILENAME__, func = __FUNCTION__, line = __LINE__]([[maybe_unused]] std::unique_ptr<IFSWrapper> &layer, FSStatus res) -> FSStatus { \
+    DEBUG_FUNCTION_LINE_VERBOSE_EX(filename, func, line, "Async result was %d", res);                                                                                                                               \
+    return send_result_async(c, b, a, res);                                                                                                                                                                         \
 }
 
 #define FS_ERROR_FLAG_EXTRA_MASK (FSErrorFlag) 0xFFFF0000
@@ -68,8 +68,8 @@ void setWorkingDir(FSClient *client, const char *path);
 FSStatus doForLayer(FSClient *client,
                     FSErrorFlag errorMask,
                     const std::function<FSStatus(FSErrorFlag errorMask)> &real_function,
-                    const std::function<FSStatus(IFSWrapper *layer)> &layer_callback,
-                    const std::function<FSStatus(IFSWrapper *layer, FSStatus)> &result_handler);
+                    const std::function<FSStatus(std::unique_ptr<IFSWrapper> &layer)> &layer_callback,
+                    const std::function<FSStatus(std::unique_ptr<IFSWrapper> &layer, FSStatus)> &result_handler);
 
 FSCmdBlockBody *fsCmdBlockGetBody(FSCmdBlock *cmdBlock);
 
