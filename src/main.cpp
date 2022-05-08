@@ -10,9 +10,16 @@ WUMS_USE_WUT_DEVOPTAB();
 WUMS_INITIALIZE() {
     initLogging();
     DEBUG_FUNCTION_LINE("Patch functions");
-    // we only patch static functions, we don't need re-patch them at every launch
-    FunctionPatcherPatchFunction(fs_file_function_replacements, fs_file_function_replacements_size);
-    FunctionPatcherPatchFunction(fs_dir_function_replacements, fs_dir_function_replacements_size);
+    for (uint32_t i = 0; i < fs_file_function_replacements_size; i++) {
+        if (!FunctionPatcherPatchFunction(&fs_file_function_replacements[i], nullptr)) {
+            OSFatal("homebrew_content_redirection: Failed to patch function");
+        }
+    }
+    for (uint32_t i = 0; i < fs_dir_function_replacements_size; i++) {
+        if (!FunctionPatcherPatchFunction(&fs_dir_function_replacements[i], nullptr)) {
+            OSFatal("homebrew_content_redirection: Failed to patch function");
+        }
+    }
     DEBUG_FUNCTION_LINE("Patch functions finished");
     deinitLogging();
 }
