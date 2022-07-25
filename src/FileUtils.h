@@ -38,29 +38,6 @@ static inline FSErrorFlag isForceRealFunction(FSErrorFlag flag) {
 
 void clearFSLayer();
 
-struct WUT_PACKED FSCmdBlockBody { //! FSAsyncResult object used for this command.
-
-    WUT_UNKNOWN_BYTES(0x96C);
-    FSAsyncResult asyncResult;
-};
-WUT_CHECK_OFFSET(FSCmdBlockBody, 0x96C, asyncResult);
-WUT_CHECK_SIZE(FSCmdBlockBody, 0x96C + 0x28);
-
-struct WUT_PACKED FSClientBody {
-    WUT_UNKNOWN_BYTES(0x1448);
-    void *fsm;
-    WUT_UNKNOWN_BYTES(0x15E8 - 0x1448 - 0x04);
-    uint32_t lastError;
-    BOOL isLastErrorWithoutVolume;
-    WUT_UNKNOWN_BYTES(0x161C - 0x15E8 - 0x4 - 0x4);
-    FSClient *client;
-};
-WUT_CHECK_OFFSET(FSClientBody, 0x1448, fsm);
-WUT_CHECK_OFFSET(FSClientBody, 0x15E8, lastError);
-WUT_CHECK_OFFSET(FSClientBody, 0x15EC, isLastErrorWithoutVolume);
-WUT_CHECK_OFFSET(FSClientBody, 0x161C, client);
-WUT_CHECK_SIZE(FSClientBody, 0x161C + 0x4);
-
 std::string getFullPathForClient(FSClient *pClient, char *path);
 
 void setWorkingDir(FSClient *client, const char *path);
