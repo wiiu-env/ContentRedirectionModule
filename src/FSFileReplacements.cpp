@@ -21,7 +21,7 @@ DECL_FUNCTION(FSStatus, FSOpenFile, FSClient *client, FSCmdBlock *block, char *p
             SYNC_RESULT_HANDLER);
 }
 
-DECL_FUNCTION(FSStatus, FSOpenFileAsync, FSClient *client, FSCmdBlock *block, char *path, const char *mode, FSFileHandle *handle, FSErrorFlag errorMask, FSAsyncData *asyncData) {
+DECL_FUNCTION(FSStatus, FSOpenFileAsync, FSClient *client, FSCmdBlock *block, const char *path, const char *mode, FSFileHandle *handle, FSErrorFlag errorMask, FSAsyncData *asyncData) {
     DEBUG_FUNCTION_LINE_VERBOSE("%s", path);
     if (isForceRealFunction(errorMask)) {
         return real_FSOpenFileAsync(client, block, path, mode, handle, getRealErrorFlag(errorMask), asyncData);
@@ -88,7 +88,7 @@ DECL_FUNCTION(FSStatus, FSCloseFileAsync, FSClient *client, FSCmdBlock *block, F
             });
 }
 
-DECL_FUNCTION(FSStatus, FSGetStat, FSClient *client, FSCmdBlock *block, char *path, FSStat *stats, FSErrorFlag errorMask) {
+DECL_FUNCTION(FSStatus, FSGetStat, FSClient *client, FSCmdBlock *block, const char *path, FSStat *stats, FSErrorFlag errorMask) {
     DEBUG_FUNCTION_LINE_VERBOSE("%s", path);
     if (isForceRealFunction(errorMask)) {
         return real_FSGetStat(client, block, path, stats, errorMask);
@@ -105,7 +105,7 @@ DECL_FUNCTION(FSStatus, FSGetStat, FSClient *client, FSCmdBlock *block, char *pa
             SYNC_RESULT_HANDLER);
 }
 
-DECL_FUNCTION(FSStatus, FSGetStatAsync, FSClient *client, FSCmdBlock *block, char *path, FSStat *stats, FSErrorFlag errorMask, FSAsyncData *asyncData) {
+DECL_FUNCTION(FSStatus, FSGetStatAsync, FSClient *client, FSCmdBlock *block, const char *path, FSStat *stats, FSErrorFlag errorMask, FSAsyncData *asyncData) {
     DEBUG_FUNCTION_LINE_VERBOSE("%s", path);
     if (isForceRealFunction(errorMask)) {
         return real_FSGetStatAsync(client, block, path, stats, getRealErrorFlag(errorMask), asyncData);
@@ -397,7 +397,7 @@ DECL_FUNCTION(FSStatus, FSTruncateFileAsync, FSClient *client, FSCmdBlock *block
             ASYNC_RESULT_HANDLER);
 }
 
-DECL_FUNCTION(FSStatus, FSRemove, FSClient *client, FSCmdBlock *block, char *path, FSErrorFlag errorMask) {
+DECL_FUNCTION(FSStatus, FSRemove, FSClient *client, FSCmdBlock *block, const char *path, FSErrorFlag errorMask) {
     DEBUG_FUNCTION_LINE_VERBOSE("%s", path);
     if (isForceRealFunction(errorMask)) {
         return real_FSRemove(client, block, path, errorMask);
@@ -414,7 +414,7 @@ DECL_FUNCTION(FSStatus, FSRemove, FSClient *client, FSCmdBlock *block, char *pat
             SYNC_RESULT_HANDLER);
 }
 
-DECL_FUNCTION(FSStatus, FSRemoveAsync, FSClient *client, FSCmdBlock *block, char *path, [[maybe_unused]] FSErrorFlag errorMask, FSAsyncData *asyncData) {
+DECL_FUNCTION(FSStatus, FSRemoveAsync, FSClient *client, FSCmdBlock *block, const char *path, [[maybe_unused]] FSErrorFlag errorMask, FSAsyncData *asyncData) {
     DEBUG_FUNCTION_LINE_VERBOSE("%s", path);
     if (isForceRealFunction(errorMask)) {
         return real_FSRemoveAsync(client, block, path, getRealErrorFlag(errorMask), asyncData);
@@ -431,7 +431,7 @@ DECL_FUNCTION(FSStatus, FSRemoveAsync, FSClient *client, FSCmdBlock *block, char
             ASYNC_RESULT_HANDLER);
 }
 
-DECL_FUNCTION(FSStatus, FSRename, FSClient *client, FSCmdBlock *block, char *oldPath, char *newPath, FSErrorFlag errorMask) {
+DECL_FUNCTION(FSStatus, FSRename, FSClient *client, FSCmdBlock *block, const char *oldPath, const char *newPath, FSErrorFlag errorMask) {
     DEBUG_FUNCTION_LINE_VERBOSE("%s -> %s", oldPath, newPath);
     if (isForceRealFunction(errorMask)) {
         return real_FSRename(client, block, oldPath, newPath, getRealErrorFlag(errorMask));
@@ -451,8 +451,8 @@ DECL_FUNCTION(FSStatus, FSRename, FSClient *client, FSCmdBlock *block, char *old
 DECL_FUNCTION(FSStatus, FSRenameAsync,
               FSClient *client,
               FSCmdBlock *block,
-              char *oldPath,
-              char *newPath,
+              const char *oldPath,
+              const char *newPath,
               FSErrorFlag errorMask,
               FSAsyncData *asyncData) {
     DEBUG_FUNCTION_LINE_VERBOSE("%s -> %s", oldPath, newPath);
@@ -508,7 +508,7 @@ DECL_FUNCTION(FSStatus, FSFlushFileAsync, FSClient *client, FSCmdBlock *block, [
 DECL_FUNCTION(FSStatus, FSChangeModeAsync,
               FSClient *client,
               FSCmdBlock *block,
-              char *path,
+              const char *path,
               [[maybe_unused]] FSMode mode,
               [[maybe_unused]] FSMode modeMask,
               [[maybe_unused]] FSErrorFlag errorMask,
@@ -517,7 +517,7 @@ DECL_FUNCTION(FSStatus, FSChangeModeAsync,
     return real_FSChangeModeAsync(client, block, path, mode, modeMask, errorMask, asyncData);
 }
 
-DECL_FUNCTION(FSStatus, FSGetFreeSpaceSizeAsync, FSClient *client, FSCmdBlock *block, char *path, [[maybe_unused]] uint64_t *outSize, [[maybe_unused]] FSErrorFlag errorMask, FSAsyncData *asyncData) {
+DECL_FUNCTION(FSStatus, FSGetFreeSpaceSizeAsync, FSClient *client, FSCmdBlock *block, const char *path, [[maybe_unused]] uint64_t *outSize, [[maybe_unused]] FSErrorFlag errorMask, FSAsyncData *asyncData) {
     DEBUG_FUNCTION_LINE_ERR("NOT IMPLEMENTED FSGetFreeSpaceSizeAsync %s", path);
     return real_FSGetFreeSpaceSizeAsync(client, block, path, outSize, errorMask, asyncData);
 }

@@ -38,7 +38,7 @@ static inline FSErrorFlag isForceRealFunction(FSErrorFlag flag) {
 
 void clearFSLayer();
 
-std::string getFullPathForClient(FSClient *pClient, char *path);
+std::string getFullPathForClient(FSClient *pClient, const char *path);
 
 void setWorkingDir(FSClient *client, const char *path);
 
