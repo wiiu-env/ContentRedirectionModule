@@ -192,7 +192,6 @@ FSStatus FSWrapper::FSOpenFileWrapper(const char *path, const char *mode, FSFile
         return FS_STATUS_ACCESS_ERROR;
     }
 
-
     DEBUG_FUNCTION_LINE_VERBOSE("[%s] Open %s (as %s) mode %s,", getName().c_str(), path, newPath.c_str(), mode);
     int32_t fd = open(newPath.c_str(), _mode);
     if (fd >= 0) {

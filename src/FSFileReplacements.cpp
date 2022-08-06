@@ -4,7 +4,6 @@
 #include <coreinit/dynload.h>
 #include <cstdarg>
 
-
 DECL_FUNCTION(FSStatus, FSOpenFileEx, FSClient *client, FSCmdBlock *block, const char *path, const char *mode, FSMode createMode, FSOpenFileFlags openFlag, uint32_t preallocSize, FSFileHandle *handle, FSErrorFlag errorMask) {
     DEBUG_FUNCTION_LINE_VERBOSE("%s", path);
     if (isForceRealFunction(errorMask)) {
@@ -59,7 +58,7 @@ DECL_FUNCTION(FSStatus, FSOpenFile, FSClient *client, FSCmdBlock *block, char *p
 DECL_FUNCTION(FSStatus, FSOpenFileAsync, FSClient *client, FSCmdBlock *block, const char *path, const char *mode, FSFileHandle *handle, FSErrorFlag errorMask, FSAsyncData *asyncData) {
     DEBUG_FUNCTION_LINE_VERBOSE("%s", path);
     if (isForceRealFunction(errorMask)) {
-        return real_FSOpenFileAsync(client, block, path, mode, handle, getRealErrorFlag(errorMask), asyncData);
+        return real_FSOpenFileAsync(client, block, path, mode, handle, errorMask, asyncData);
     }
     return doForLayer(
             client,
