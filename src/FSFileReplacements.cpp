@@ -4,6 +4,41 @@
 #include <coreinit/dynload.h>
 #include <cstdarg>
 
+
+DECL_FUNCTION(FSStatus, FSOpenFileEx, FSClient *client, FSCmdBlock *block, const char *path, const char *mode, FSMode createMode, FSOpenFileFlags openFlag, uint32_t preallocSize, FSFileHandle *handle, FSErrorFlag errorMask) {
+    DEBUG_FUNCTION_LINE_VERBOSE("%s", path);
+    if (isForceRealFunction(errorMask)) {
+        return real_FSOpenFileEx(client, block, path, mode, createMode, openFlag, preallocSize, handle, errorMask);
+    }
+    return doForLayer(
+            client,
+            errorMask,
+            [c = client, b = block, p = path, m = mode, cm = createMode, of = openFlag, pa = preallocSize, h = handle](FSErrorFlag realErrorMask) -> FSStatus {
+                return real_FSOpenFileEx(c, b, p, m, cm, of, pa, h, realErrorMask);
+            },
+            [f = getFullPathForClient(client, path), m = mode, h = handle](std::unique_ptr<IFSWrapper> &layer) -> FSStatus {
+                return layer->FSOpenFileWrapper(f.c_str(), m, h);
+            },
+            SYNC_RESULT_HANDLER);
+}
+
+DECL_FUNCTION(FSStatus, FSOpenFileExAsync, FSClient *client, FSCmdBlock *block, const char *path, const char *mode, FSMode createMode, FSOpenFileFlags openFlag, uint32_t preallocSize, FSFileHandle *handle, FSErrorFlag errorMask, FSAsyncData *asyncData) {
+    DEBUG_FUNCTION_LINE_VERBOSE("%s", path);
+    if (isForceRealFunction(errorMask)) {
+        return real_FSOpenFileExAsync(client, block, path, mode, createMode, openFlag, preallocSize, handle, getRealErrorFlag(errorMask), asyncData);
+    }
+    return doForLayer(
+            client,
+            errorMask,
+            [c = client, b = block, p = path, m = mode, cm = createMode, of = openFlag, pa = preallocSize, h = handle, a = asyncData](FSErrorFlag realErrorMask) -> FSStatus {
+                return real_FSOpenFileExAsync(c, b, p, m, cm, of, pa, h, realErrorMask, a);
+            },
+            [p = getFullPathForClient(client, path), m = mode, h = handle](std::unique_ptr<IFSWrapper> &layer) -> FSStatus {
+                return layer->FSOpenFileWrapper(p.c_str(), m, h);
+            },
+            ASYNC_RESULT_HANDLER);
+}
+
 DECL_FUNCTION(FSStatus, FSOpenFile, FSClient *client, FSCmdBlock *block, char *path, const char *mode, FSFileHandle *handle, FSErrorFlag errorMask) {
     DEBUG_FUNCTION_LINE_VERBOSE("%s", path);
     if (isForceRealFunction(errorMask)) {
@@ -523,6 +558,9 @@ DECL_FUNCTION(FSStatus, FSGetFreeSpaceSizeAsync, FSClient *client, FSCmdBlock *b
 }
 
 function_replacement_data_t fs_file_function_replacements[] = {
+        REPLACE_FUNCTION(FSOpenFileEx, LIBRARY_COREINIT, FSOpenFileEx),
+        REPLACE_FUNCTION(FSOpenFileExAsync, LIBRARY_COREINIT, FSOpenFileExAsync),
+
         REPLACE_FUNCTION(FSOpenFile, LIBRARY_COREINIT, FSOpenFile),
         REPLACE_FUNCTION(FSOpenFileAsync, LIBRARY_COREINIT, FSOpenFileAsync),
 
