@@ -16,7 +16,7 @@ std::map<FSClient *, std::string> workingDirs;
 std::mutex fsLayerMutex;
 std::vector<std::unique_ptr<IFSWrapper>> fsLayers;
 
-std::string getFullPathForClient(FSClient *pClient, char *path) {
+std::string getFullPathForClient(FSClient *pClient, const char *path) {
     std::string res;
 
     if (path[0] != '/' && path[0] != '\\') {

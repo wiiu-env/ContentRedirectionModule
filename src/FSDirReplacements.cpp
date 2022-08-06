@@ -5,7 +5,7 @@
 #include <coreinit/cache.h>
 #include <coreinit/filesystem.h>
 
-DECL_FUNCTION(FSStatus, FSOpenDir, FSClient *client, FSCmdBlock *block, char *path, FSDirectoryHandle *handle, FSErrorFlag errorMask) {
+DECL_FUNCTION(FSStatus, FSOpenDir, FSClient *client, FSCmdBlock *block, const char *path, FSDirectoryHandle *handle, FSErrorFlag errorMask) {
     DEBUG_FUNCTION_LINE_VERBOSE("%s", path);
     if (isForceRealFunction(errorMask)) {
         return real_FSOpenDir(client, block, path, handle, errorMask);
@@ -23,7 +23,7 @@ DECL_FUNCTION(FSStatus, FSOpenDir, FSClient *client, FSCmdBlock *block, char *pa
 }
 
 
-DECL_FUNCTION(FSStatus, FSOpenDirAsync, FSClient *client, FSCmdBlock *block, char *path, FSDirectoryHandle *handle, FSErrorFlag errorMask, FSAsyncData *asyncData) {
+DECL_FUNCTION(FSStatus, FSOpenDirAsync, FSClient *client, FSCmdBlock *block, const char *path, FSDirectoryHandle *handle, FSErrorFlag errorMask, FSAsyncData *asyncData) {
     DEBUG_FUNCTION_LINE_VERBOSE("%s", path);
     if (isForceRealFunction(errorMask)) {
         return real_FSOpenDirAsync(client, block, path, handle, getRealErrorFlag(errorMask), asyncData);
@@ -158,7 +158,7 @@ DECL_FUNCTION(FSStatus, FSRewindDirAsync, FSClient *client, FSCmdBlock *block, F
             ASYNC_RESULT_HANDLER);
 }
 
-DECL_FUNCTION(FSStatus, FSMakeDir, FSClient *client, FSCmdBlock *block, char *path, FSErrorFlag errorMask) {
+DECL_FUNCTION(FSStatus, FSMakeDir, FSClient *client, FSCmdBlock *block, const char *path, FSErrorFlag errorMask) {
     DEBUG_FUNCTION_LINE_VERBOSE("%s", path);
     if (isForceRealFunction(errorMask)) {
         return real_FSMakeDir(client, block, path, errorMask);
@@ -175,7 +175,7 @@ DECL_FUNCTION(FSStatus, FSMakeDir, FSClient *client, FSCmdBlock *block, char *pa
             SYNC_RESULT_HANDLER);
 }
 
-DECL_FUNCTION(FSStatus, FSMakeDirAsync, FSClient *client, FSCmdBlock *block, char *path, FSErrorFlag errorMask, FSAsyncData *asyncData) {
+DECL_FUNCTION(FSStatus, FSMakeDirAsync, FSClient *client, FSCmdBlock *block, const char *path, FSErrorFlag errorMask, FSAsyncData *asyncData) {
     DEBUG_FUNCTION_LINE_VERBOSE("%s", path);
     if (isForceRealFunction(errorMask)) {
         return real_FSMakeDirAsync(client, block, path, getRealErrorFlag(errorMask), asyncData);
