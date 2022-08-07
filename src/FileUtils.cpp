@@ -5,6 +5,7 @@
 #include "utils/logger.h"
 #include "utils/utils.h"
 #include <coreinit/cache.h>
+#include <coreinit/filesystem_fsa.h>
 #include <coreinit/thread.h>
 #include <map>
 #include <unistd.h>
@@ -54,11 +55,12 @@ void clearFSLayer() {
 
 // FUN_0204cc20
 #define fsClientHandleFatalErrorAndBlock ((void (*)(FSClientBody *, uint32_t))(0x101C400 + 0x4cc20))
+#define fsaDecodeFsaStatusToFsStatus     ((FSStatus(*)(FSError))(0x101C400 + 0x4b148))
 
 FSStatus doForLayer(FSClient *client,
                     FSErrorFlag errorMask,
                     const std::function<FSStatus(FSErrorFlag errorMask)> &real_function,
-                    const std::function<FSStatus(std::unique_ptr<IFSWrapper> &layer)> &layer_callback,
+                    const std::function<FSError(std::unique_ptr<IFSWrapper> &layer)> &layer_callback,
                     const std::function<FSStatus(std::unique_ptr<IFSWrapper> &layer, FSStatus)> &result_handler) {
     FSErrorFlag realErrorMask = errorMask;
 
@@ -79,17 +81,16 @@ FSStatus doForLayer(FSClient *client,
                 if (!layer->isActive()) {
                     continue;
                 }
-                auto result = layer_callback(layer);
+                FSError layerResult = layer_callback(layer);
+                if (layerResult != FS_ERROR_FORCE_PARENT_LAYER) {
+                    auto maskedResult = (FSError) ((layerResult & FS_ERROR_REAL_MASK) | FS_ERROR_EXTRA_MASK);
+                    auto result       = layerResult >= 0 ? static_cast<FSStatus>(layerResult) : fsaDecodeFsaStatusToFsStatus(maskedResult);
 
-                if (result != FS_STATUS_FORCE_PARENT_LAYER) {
                     if (result < FS_STATUS_OK && result != FS_STATUS_END && result != FS_STATUS_CANCELLED) {
                         if (layer->fallbackOnError()) {
-                            // Only fallback if FS_STATUS_FORCE_NO_FALLBACK flag is not set.
-                            if (static_cast<FSStatus>(result & 0xFFFF0000) != FS_STATUS_FORCE_NO_FALLBACK) {
+                            // Only fallback if FS_ERROR_FORCE_NO_FALLBACK flag is not set.
+                            if (static_cast<FSError>(layerResult & FS_ERROR_EXTRA_MASK) != FS_ERROR_FORCE_NO_FALLBACK) {
                                 continue;
-                            } else {
-                                // Remove FS_STATUS_FORCE_NO_FALLBACK flag.
-                                result = static_cast<FSStatus>((result & 0x0000FFFF) | 0xFFFF0000);
                             }
                         }
                     }
@@ -102,7 +103,7 @@ FSStatus doForLayer(FSClient *client,
                     FSErrorFlag errorFlags = FS_ERROR_FLAG_NONE;
                     bool forceError        = false;
 
-                    switch ((int) result) {
+                    switch ((int32_t) result) {
                         case FS_STATUS_MAX:
                             errorFlags = FS_ERROR_FLAG_MAX;
                             break;

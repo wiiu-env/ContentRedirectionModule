@@ -45,7 +45,7 @@ void setWorkingDir(FSClient *client, const char *path);
 FSStatus doForLayer(FSClient *client,
                     FSErrorFlag errorMask,
                     const std::function<FSStatus(FSErrorFlag errorMask)> &real_function,
-                    const std::function<FSStatus(std::unique_ptr<IFSWrapper> &layer)> &layer_callback,
+                    const std::function<FSError(std::unique_ptr<IFSWrapper> &layer)> &layer_callback,
                     const std::function<FSStatus(std::unique_ptr<IFSWrapper> &layer, FSStatus)> &result_handler);
 
 FSCmdBlockBody *fsCmdBlockGetBody(FSCmdBlock *cmdBlock);

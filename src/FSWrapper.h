@@ -32,68 +32,68 @@ public:
         }
     }
 
-    FSStatus FSOpenDirWrapper(const char *path,
-                              FSDirectoryHandle *handle) override;
+    FSError FSOpenDirWrapper(const char *path,
+                             FSDirectoryHandle *handle) override;
 
 
-    FSStatus FSReadDirWrapper(FSDirectoryHandle handle,
-                              FSDirectoryEntry *entry) override;
+    FSError FSReadDirWrapper(FSDirectoryHandle handle,
+                             FSDirectoryEntry *entry) override;
 
-    FSStatus FSCloseDirWrapper(FSDirectoryHandle handle) override;
-
-
-    FSStatus FSMakeDirWrapper(const char *path) override;
+    FSError FSCloseDirWrapper(FSDirectoryHandle handle) override;
 
 
-    FSStatus FSRewindDirWrapper(FSDirectoryHandle handle) override;
+    FSError FSMakeDirWrapper(const char *path) override;
 
 
-    FSStatus FSOpenFileWrapper(const char *path,
-                               const char *mode,
-                               FSFileHandle *handle) override;
+    FSError FSRewindDirWrapper(FSDirectoryHandle handle) override;
 
-    FSStatus FSCloseFileWrapper(FSFileHandle handle) override;
 
-    FSStatus FSGetStatWrapper(const char *path, FSStat *stats) override;
+    FSError FSOpenFileWrapper(const char *path,
+                              const char *mode,
+                              FSFileHandle *handle) override;
 
-    FSStatus FSGetStatFileWrapper(FSFileHandle handle,
-                                  FSStat *stats) override;
+    FSError FSCloseFileWrapper(FSFileHandle handle) override;
 
-    FSStatus FSReadFileWrapper(void *buffer,
+    FSError FSGetStatWrapper(const char *path, FSStat *stats) override;
+
+    FSError FSGetStatFileWrapper(FSFileHandle handle,
+                                 FSStat *stats) override;
+
+    FSError FSReadFileWrapper(void *buffer,
+                              uint32_t size,
+                              uint32_t count,
+                              FSFileHandle handle,
+                              uint32_t unk1) override;
+
+    FSError FSReadFileWithPosWrapper(void *buffer,
+                                     uint32_t size,
+                                     uint32_t count,
+                                     uint32_t pos,
+                                     FSFileHandle handle,
+                                     int32_t unk1) override;
+
+    FSError FSSetPosFileWrapper(FSFileHandle handle,
+                                uint32_t pos) override;
+
+    FSError FSGetPosFileWrapper(FSFileHandle handle,
+                                uint32_t *pos) override;
+
+    FSError FSIsEofWrapper(FSFileHandle handle) override;
+
+    FSError FSTruncateFileWrapper(FSFileHandle handle) override;
+
+    FSError FSWriteFileWrapper(uint8_t *buffer,
                                uint32_t size,
                                uint32_t count,
                                FSFileHandle handle,
                                uint32_t unk1) override;
 
-    FSStatus FSReadFileWithPosWrapper(void *buffer,
-                                      uint32_t size,
-                                      uint32_t count,
-                                      uint32_t pos,
-                                      FSFileHandle handle,
-                                      int32_t unk1) override;
+    FSError FSRemoveWrapper(const char *path) override;
 
-    FSStatus FSSetPosFileWrapper(FSFileHandle handle,
-                                 uint32_t pos) override;
+    FSError FSRenameWrapper(const char *oldPath,
+                            const char *newPath) override;
 
-    FSStatus FSGetPosFileWrapper(FSFileHandle handle,
-                                 uint32_t *pos) override;
-
-    FSStatus FSIsEofWrapper(FSFileHandle handle) override;
-
-    FSStatus FSTruncateFileWrapper(FSFileHandle handle) override;
-
-    FSStatus FSWriteFileWrapper(uint8_t *buffer,
-                                uint32_t size,
-                                uint32_t count,
-                                FSFileHandle handle,
-                                uint32_t unk1) override;
-
-    FSStatus FSRemoveWrapper(const char *path) override;
-
-    FSStatus FSRenameWrapper(const char *oldPath,
-                             const char *newPath) override;
-
-    FSStatus FSFlushFileWrapper(FSFileHandle handle) override;
+    FSError FSFlushFileWrapper(FSFileHandle handle) override;
 
 protected:
     virtual bool IsFileModeAllowed(const char *mode);

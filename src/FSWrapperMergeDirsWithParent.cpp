@@ -6,13 +6,19 @@
 #include <coreinit/filesystem.h>
 #include <filesystem>
 
-FSStatus FSWrapperMergeDirsWithParent::FSOpenDirWrapper(const char *path,
-                                                        FSDirectoryHandle *handle) {
+FSError FSWrapperMergeDirsWithParent::FSOpenDirWrapper(const char *path,
+                                                       FSDirectoryHandle *handle) {
+    if (handle == nullptr) {
+        DEBUG_FUNCTION_LINE_ERR("[%s] handle was NULL", getName().c_str());
+        return FS_ERROR_INVALID_PARAM;
+    }
+
     auto res = FSWrapper::FSOpenDirWrapper(path, handle);
-    if (res == FS_STATUS_OK) {
-        if (handle == nullptr || !isValidDirHandle(*handle)) {
+    if (res == FS_ERROR_OK) {
+        if (!isValidDirHandle(*handle)) {
+            FSWrapper::FSCloseDirWrapper(*handle);
             DEBUG_FUNCTION_LINE_ERR("[%s] No valid dir handle %08X", getName().c_str(), *handle);
-            return FS_STATUS_FATAL_ERROR;
+            return FS_ERROR_INVALID_DIRHANDLE;
         }
         auto dirHandle = getDirExFromHandle(*handle);
         if (dirHandle != nullptr) {
@@ -42,16 +48,16 @@ bool FSWrapperMergeDirsWithParent::SkipDeletedFilesInReadDir() {
     return false;
 }
 
-FSStatus FSWrapperMergeDirsWithParent::FSReadDirWrapper(FSDirectoryHandle handle, FSDirectoryEntry *entry) {
+FSError FSWrapperMergeDirsWithParent::FSReadDirWrapper(FSDirectoryHandle handle, FSDirectoryEntry *entry) {
     do {
         auto res = FSWrapper::FSReadDirWrapper(handle, entry);
-        if (res == FS_STATUS_OK || res == FS_STATUS_END) {
+        if (res == FS_ERROR_OK || res == FS_ERROR_END_OF_DIR) {
             if (!isValidDirHandle(handle)) {
                 DEBUG_FUNCTION_LINE_ERR("[%s] No valid dir handle %08X", getName().c_str(), handle);
-                return FS_STATUS_FATAL_ERROR;
+                return FS_ERROR_INVALID_DIRHANDLE;
             }
             auto dirHandle = getDirExFromHandle(handle);
-            if (res == FS_STATUS_OK) {
+            if (res == FS_ERROR_OK) {
                 if (dirHandle->readResultCapacity == 0) {
                     dirHandle->readResult = (FSDirectoryEntryEx *) malloc(sizeof(FSDirectoryEntryEx));
                     if (dirHandle->readResult == nullptr) {
@@ -75,7 +81,7 @@ FSStatus FSWrapperMergeDirsWithParent::FSReadDirWrapper(FSDirectoryHandle handle
                 dirHandle->readResultNumberOfEntries++;
 
                 /**
-                 * Read the next entry if this enntry starts with deletePrefix. We keep the entry but mark it as deleted.
+                 * Read the next entry if this entry starts with deletePrefix. We keep the entry but mark it as deleted.
                  */
                 if (std::string_view(entry->name).starts_with(deletePrefix)) {
                     dirHandle->readResult[dirHandle->readResultNumberOfEntries].isMarkedAsDeleted = true;
@@ -86,7 +92,7 @@ FSStatus FSWrapperMergeDirsWithParent::FSReadDirWrapper(FSDirectoryHandle handle
 
                 OSMemoryBarrier();
 
-            } else if (res == FS_STATUS_END) {
+            } else if (res == FS_ERROR_END_OF_DIR) {
                 // Read the real directory.
                 if (dirHandle->realDirHandle != 0) {
                     if (pFSClient && pCmdBlock) {
@@ -115,15 +121,15 @@ FSStatus FSWrapperMergeDirsWithParent::FSReadDirWrapper(FSDirectoryHandle handle
                                 // If it's new we can use it :)
                                 if (!found) {
                                     memcpy(entry, &realDirEntry, sizeof(FSDirectoryEntry));
-                                    res = FS_STATUS_OK;
+                                    res = FS_ERROR_OK;
                                     break;
                                 }
                             } else if (readDirResult == FS_STATUS_END) {
-                                res = FS_STATUS_END;
+                                res = FS_ERROR_END_OF_DIR;
                                 break;
                             } else {
                                 DEBUG_FUNCTION_LINE_ERR("[%s] real_FSReadDir returned an unexpected error: %08X", getName().c_str(), readDirResult);
-                                res = FS_STATUS_END;
+                                res = FS_ERROR_END_OF_DIR;
                                 break;
                             }
                         }
@@ -139,13 +145,13 @@ FSStatus FSWrapperMergeDirsWithParent::FSReadDirWrapper(FSDirectoryHandle handle
     } while (true);
 }
 
-FSStatus FSWrapperMergeDirsWithParent::FSCloseDirWrapper(FSDirectoryHandle handle) {
+FSError FSWrapperMergeDirsWithParent::FSCloseDirWrapper(FSDirectoryHandle handle) {
     auto res = FSWrapper::FSCloseDirWrapper(handle);
 
-    if (res == FS_STATUS_OK) {
+    if (res == FS_ERROR_OK) {
         if (!isValidDirHandle(handle)) {
             DEBUG_FUNCTION_LINE_ERR("[%s] No valid dir handle %08X", getName().c_str(), handle);
-            return FS_STATUS_FATAL_ERROR;
+            return FS_ERROR_INVALID_DIRHANDLE;
         }
         auto dirHandle = getDirExFromHandle(handle);
         if (dirHandle->realDirHandle != 0) {
@@ -156,7 +162,7 @@ FSStatus FSWrapperMergeDirsWithParent::FSCloseDirWrapper(FSDirectoryHandle handl
                     dirHandle->realDirHandle = 0;
                 } else {
                     DEBUG_FUNCTION_LINE_ERR("[%s] Failed to close realDirHandle %d: res %d", getName().c_str(), dirHandle->realDirHandle, realResult);
-                    return realResult;
+                    return realResult == FS_STATUS_CANCELLED ? FS_ERROR_CANCELLED : FS_ERROR_MEDIA_ERROR;
                 }
             } else {
                 DEBUG_FUNCTION_LINE_ERR("[%s] Global FSClient or FSCmdBlock were null", getName().c_str());
@@ -175,12 +181,12 @@ FSStatus FSWrapperMergeDirsWithParent::FSCloseDirWrapper(FSDirectoryHandle handl
     return res;
 }
 
-FSStatus FSWrapperMergeDirsWithParent::FSRewindDirWrapper(FSDirectoryHandle handle) {
+FSError FSWrapperMergeDirsWithParent::FSRewindDirWrapper(FSDirectoryHandle handle) {
     auto res = FSWrapper::FSRewindDirWrapper(handle);
-    if (res == FS_STATUS_OK) {
+    if (res == FS_ERROR_OK) {
         if (!isValidDirHandle(handle)) {
             DEBUG_FUNCTION_LINE_ERR("[%s] No valid dir handle %08X", getName().c_str(), handle);
-            return FS_STATUS_FATAL_ERROR;
+            return FS_ERROR_INVALID_DIRHANDLE;
         }
         auto dirHandle = getDirExFromHandle(handle);
         if (dirHandle->readResult != nullptr) {
