@@ -57,5 +57,3 @@ FSStatus send_result_async(FSClient *client, FSCmdBlock *block, FSAsyncData *asy
 int64_t readIntoBuffer(int32_t handle, void *buffer, size_t size, size_t count);
 
 int64_t writeFromBuffer(int32_t handle, void *buffer, size_t size, size_t count);
-
-int32_t CreateSubfolder(const char *fullpath);

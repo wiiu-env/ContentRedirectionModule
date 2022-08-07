@@ -10,9 +10,6 @@ extern "C" {
 extern function_replacement_data_t fs_file_function_replacements[];
 extern uint32_t fs_file_function_replacements_size;
 
-extern function_replacement_data_t test_function_replacements[];
-extern uint32_t test_function_replacements_size;
-
 #ifdef __cplusplus
 }
 #endif

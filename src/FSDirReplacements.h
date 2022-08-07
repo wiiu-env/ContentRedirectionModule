@@ -6,6 +6,5 @@
 #include <functional>
 #include <string>
 
-
 extern function_replacement_data_t fs_dir_function_replacements[];
 extern uint32_t fs_dir_function_replacements_size;
