@@ -13,15 +13,15 @@ public:
 
     ~FSWrapperMergeDirsWithParent() override;
 
-    FSStatus FSOpenDirWrapper(const char *path,
-                              FSDirectoryHandle *handle) override;
+    FSError FSOpenDirWrapper(const char *path,
+                             FSDirectoryHandle *handle) override;
 
-    FSStatus FSReadDirWrapper(FSDirectoryHandle handle,
-                              FSDirectoryEntry *entry) override;
+    FSError FSReadDirWrapper(FSDirectoryHandle handle,
+                             FSDirectoryEntry *entry) override;
 
-    FSStatus FSCloseDirWrapper(FSDirectoryHandle handle) override;
+    FSError FSCloseDirWrapper(FSDirectoryHandle handle) override;
 
-    FSStatus FSRewindDirWrapper(FSDirectoryHandle handle) override;
+    FSError FSRewindDirWrapper(FSDirectoryHandle handle) override;
 
     std::shared_ptr<DirInfo> getNewDirHandle() override;
 

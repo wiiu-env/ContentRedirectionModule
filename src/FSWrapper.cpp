@@ -6,23 +6,27 @@
 #include <algorithm>
 #include <coreinit/cache.h>
 #include <coreinit/debug.h>
+#include <coreinit/filesystem_fsa.h>
 #include <cstdio>
 #include <filesystem>
 #include <sys/dirent.h>
 #include <sys/fcntl.h>
 #include <sys/unistd.h>
 
-FSStatus FSWrapper::FSOpenDirWrapper(const char *path, FSDirectoryHandle *handle) {
+FSError FSWrapper::FSOpenDirWrapper(const char *path, FSDirectoryHandle *handle) {
+    if (path == nullptr) {
+        return FS_ERROR_INVALID_PARAM;
+    }
     if (!IsPathToReplace(path)) {
-        return FS_STATUS_FORCE_PARENT_LAYER;
+        return FS_ERROR_FORCE_PARENT_LAYER;
     }
 
     if (handle == nullptr) {
         DEBUG_FUNCTION_LINE_ERR("[%s] handle was nullptr", getName().c_str());
-        return FS_STATUS_FATAL_ERROR;
+        return FS_ERROR_INVALID_PARAM;
     }
 
-    FSStatus result = FS_STATUS_OK;
+    FSError result = FS_ERROR_OK;
 
     auto dirHandle = getNewDirHandle();
     if (dirHandle) {
@@ -30,7 +34,6 @@ FSStatus FSWrapper::FSOpenDirWrapper(const char *path, FSDirectoryHandle *handle
         auto newPath = GetNewPath(path);
 
         if ((dir = opendir(newPath.c_str()))) {
-
             dirHandle->dir    = dir;
             dirHandle->handle = (((uint32_t) dirHandle.get()) & 0x0FFFFFFF) | 0x30000000;
             *handle           = dirHandle->handle;
@@ -43,26 +46,40 @@ FSStatus FSWrapper::FSOpenDirWrapper(const char *path, FSDirectoryHandle *handle
                 OSMemoryBarrier();
             }
         } else {
-            result = FS_STATUS_NOT_FOUND;
+            auto err = errno;
+            if (err == ENOENT) {
+                DEBUG_FUNCTION_LINE("[%s] Open dir %s (%s) failed. FS_ERROR_NOT_FOUND", getName().c_str(), path, newPath.c_str());
+                return FS_ERROR_NOT_FOUND;
+            }
+            DEBUG_FUNCTION_LINE_ERR("[%s] Open dir %s (%s) failed. errno %d", getName().c_str(), path, newPath.c_str(), err);
+            if (err == EACCES) {
+                return FS_ERROR_PERMISSION_ERROR;
+            } else if (err == ENOTDIR) {
+                return FS_ERROR_NOT_DIR;
+            } else if (err == ENFILE || err == EMFILE) {
+                return FS_ERROR_MAX_DIRS;
+            }
+            return FS_ERROR_MEDIA_ERROR;
         }
     } else {
         DEBUG_FUNCTION_LINE_ERR("[%s] Failed to alloc dir handle", getName().c_str());
-        result = FS_STATUS_MAX;
+        result = FS_ERROR_MAX_DIRS;
     }
     return result;
 }
 
-FSStatus FSWrapper::FSReadDirWrapper(FSDirectoryHandle handle, FSDirectoryEntry *entry) {
+FSError FSWrapper::FSReadDirWrapper(FSDirectoryHandle handle, FSDirectoryEntry *entry) {
     if (!isValidDirHandle(handle)) {
-        return FS_STATUS_FORCE_PARENT_LAYER;
+        return FS_ERROR_FORCE_PARENT_LAYER;
     }
     auto dirHandle = getDirFromHandle(handle);
 
     DIR *dir = dirHandle->dir;
 
-    FSStatus result = FS_STATUS_END;
+    FSError result = FS_ERROR_END_OF_DIR;
     DEBUG_FUNCTION_LINE_VERBOSE("[%s] readdir %08X (handle %08X)", getName().c_str(), dir, handle);
     do {
+        errno                 = 0;
         struct dirent *entry_ = readdir(dir);
 
         if (entry_) {
@@ -93,103 +110,109 @@ FSStatus FSWrapper::FSReadDirWrapper(FSDirectoryHandle handle, FSDirectoryEntry 
                     }
                 }
             }
-            result = FS_STATUS_OK;
+            result = FS_ERROR_OK;
+        } else {
+            auto err = errno;
+            if (err != 0) {
+                DEBUG_FUNCTION_LINE_ERR("[%s] Failed to read dir %08X (handle %08X)", getName().c_str(), dir, handle);
+                result = FS_ERROR_MEDIA_ERROR;
+            }
         }
         break;
     } while (true);
     return result;
 }
 
-FSStatus FSWrapper::FSCloseDirWrapper(FSDirectoryHandle handle) {
+FSError FSWrapper::FSCloseDirWrapper(FSDirectoryHandle handle) {
     if (!isValidDirHandle(handle)) {
-        return FS_STATUS_FORCE_PARENT_LAYER;
+        return FS_ERROR_FORCE_PARENT_LAYER;
     }
     auto dirHandle = getDirFromHandle(handle);
 
     DIR *dir = dirHandle->dir;
 
-    FSStatus result = FS_STATUS_OK;
+    FSError result = FS_ERROR_OK;
     DEBUG_FUNCTION_LINE_VERBOSE("[%s] closedir %08X (handle %08X)", getName().c_str(), dir, handle);
-    if (closedir(dir) != 0) {
+    if (closedir(dir) < 0) {
         DEBUG_FUNCTION_LINE_ERR("[%s] Failed to close dir %08X (handle %08X)", getName().c_str(), dir, handle);
-        result = FS_STATUS_MEDIA_ERROR;
+        result = FS_ERROR_MEDIA_ERROR;
     }
     dirHandle->dir = nullptr;
 
     return result;
 }
 
-FSStatus FSWrapper::FSRewindDirWrapper(FSDirectoryHandle handle) {
+FSError FSWrapper::FSRewindDirWrapper(FSDirectoryHandle handle) {
     if (!isValidDirHandle(handle)) {
-        return FS_STATUS_FORCE_PARENT_LAYER;
+        return FS_ERROR_FORCE_PARENT_LAYER;
     }
     auto dirHandle = getDirFromHandle(handle);
 
     DIR *dir = dirHandle->dir;
 
-    DEBUG_FUNCTION_LINE_VERBOSE("[%s] rewindir %08X (handle %08X)", getName().c_str(), dir, handle);
+    DEBUG_FUNCTION_LINE_VERBOSE("[%s] rewinddir %08X (handle %08X)", getName().c_str(), dir, handle);
     rewinddir(dir);
 
-    return FS_STATUS_OK;
+    return FS_ERROR_OK;
 }
 
-FSStatus FSWrapper::FSMakeDirWrapper(const char *path) {
+FSError FSWrapper::FSMakeDirWrapper(const char *path) {
     if (!IsPathToReplace(path)) {
-        return FS_STATUS_FORCE_PARENT_LAYER;
+        return FS_ERROR_FORCE_PARENT_LAYER;
     }
     if (!pIsWriteable) {
         DEBUG_FUNCTION_LINE_VERBOSE("[%s] Tried to create dir %s but layer is not writeable", getName().c_str(), path);
-        return FS_STATUS_ACCESS_ERROR;
+        return FS_ERROR_PERMISSION_ERROR;
     }
     DEBUG_FUNCTION_LINE_ERR("NOT IMPLEMENTED MAKE DIR");
-    return FS_STATUS_FATAL_ERROR;
+    return FS_ERROR_UNSUPPORTED_COMMAND;
 }
 
-FSStatus FSWrapper::FSOpenFileWrapper(const char *path, const char *mode, FSFileHandle *handle) {
+FSError FSWrapper::FSOpenFileWrapper(const char *path, const char *mode, FSFileHandle *handle) {
     if (!IsPathToReplace(path)) {
-        return FS_STATUS_FORCE_PARENT_LAYER;
+        return FS_ERROR_FORCE_PARENT_LAYER;
     }
 
     if (path == nullptr) {
         DEBUG_FUNCTION_LINE_ERR("[%s] path was nullptr", getName().c_str());
-        return FS_STATUS_FATAL_ERROR;
+        return FS_ERROR_INVALID_PARAM;
     }
 
     if (mode == nullptr || handle == nullptr) {
         DEBUG_FUNCTION_LINE_ERR("[%s] mode or handle was nullptr", getName().c_str());
-        return FS_STATUS_FATAL_ERROR;
+        return FS_ERROR_INVALID_PARAM;
     }
 
     auto newPath = GetNewPath(path);
 
     if (pCheckIfDeleted && CheckFileShouldBeIgnored(newPath)) {
-        return static_cast<FSStatus>((FS_STATUS_NOT_FOUND & 0x0000FFFF) | FS_STATUS_FORCE_NO_FALLBACK);
+        return static_cast<FSError>((FS_ERROR_NOT_FOUND & FS_ERROR_REAL_MASK) | FS_ERROR_FORCE_NO_FALLBACK);
     }
 
-    auto result = FS_STATUS_OK;
+    auto result = FS_ERROR_OK;
     int _mode;
     // Map flags to open modes
     if (!IsFileModeAllowed(mode)) {
         OSReport("## WARN ## [%s] Given mode is not allowed %s", getName().c_str(), mode);
-        DEBUG_FUNCTION_LINE_VERBOSE("[%s] Given mode is not allowed %s", getName().c_str(), mode);
-        return FS_STATUS_ACCESS_ERROR;
+        DEBUG_FUNCTION_LINE("[%s] Given mode is not allowed %s", getName().c_str(), mode);
+        return FS_ERROR_ACCESS_ERROR;
     }
 
     if (strcmp(mode, "r") == 0 || strcmp(mode, "rb") == 0) {
-        _mode = 0x000;
+        _mode = O_RDONLY;
     } else if (strcmp(mode, "r+") == 0) {
-        _mode = 0x002;
+        _mode = O_RDWR;
     } else if (strcmp(mode, "w") == 0) {
-        _mode = 0x601;
+        _mode = O_WRONLY | O_CREAT | O_TRUNC;
     } else if (strcmp(mode, "w+") == 0) {
-        _mode = 0x602;
+        _mode = O_RDWR | O_CREAT | O_TRUNC;
     } else if (strcmp(mode, "a") == 0) {
-        _mode = 0x209;
+        _mode = O_WRONLY | O_CREAT | O_APPEND;
     } else if (strcmp(mode, "a+") == 0) {
-        _mode = 0x20A;
+        _mode = O_RDWR | O_CREAT | O_APPEND;
     } else {
         DEBUG_FUNCTION_LINE_ERR("[%s] mode \"%s\" was allowed but is unsupported", getName().c_str(), mode);
-        return FS_STATUS_ACCESS_ERROR;
+        return FS_ERROR_ACCESS_ERROR;
     }
 
     DEBUG_FUNCTION_LINE_VERBOSE("[%s] Open %s (as %s) mode %s,", getName().c_str(), path, newPath.c_str(), mode);
@@ -210,30 +233,49 @@ FSStatus FSWrapper::FSOpenFileWrapper(const char *path, const char *mode, FSFile
         } else {
             close(fd);
             DEBUG_FUNCTION_LINE_ERR("[%s] Failed to alloc new fileHandle", getName().c_str());
-            result = FS_STATUS_MAX;
+            result = FS_ERROR_MAX_FILES;
         }
     } else {
-        DEBUG_FUNCTION_LINE_VERBOSE("[%s] File not found %s (%s)", getName().c_str(), path, newPath.c_str());
-        result = FS_STATUS_NOT_FOUND;
+        auto err = errno;
+        if (err == ENOENT) {
+            DEBUG_FUNCTION_LINE_VERBOSE("[%s] File not found %s (%s)", getName().c_str(), path, newPath.c_str());
+            result = FS_ERROR_NOT_FOUND;
+        } else {
+            DEBUG_FUNCTION_LINE("[%s] Open file %s (%s) failed. errno %d ", getName().c_str(), path, newPath.c_str(), err);
+            if (err == EACCES) {
+                return FS_ERROR_PERMISSION_ERROR;
+            } else if (err == ENOENT) {
+                result = FS_ERROR_NOT_FOUND;
+            } else if (err == EEXIST) {
+                result = FS_ERROR_ALREADY_EXISTS;
+            } else if (err == EISDIR) {
+                result = FS_ERROR_NOT_FILE;
+            } else if (err == ENOTDIR) {
+                result = FS_ERROR_NOT_DIR;
+            } else if (err == ENFILE || err == EMFILE) {
+                result = FS_ERROR_MAX_FILES;
+            }
+            err = FS_ERROR_MEDIA_ERROR;
+        }
     }
 
     return result;
 }
 
-FSStatus FSWrapper::FSCloseFileWrapper(FSFileHandle handle) {
+FSError FSWrapper::FSCloseFileWrapper(FSFileHandle handle) {
     if (!isValidFileHandle(handle)) {
-        return FS_STATUS_FORCE_PARENT_LAYER;
+        return FS_ERROR_FORCE_PARENT_LAYER;
     }
 
     auto fileHandle = getFileFromHandle(handle);
 
     int real_fd = fileHandle->fd;
 
-    FSStatus result = FS_STATUS_OK;
+    FSError result = FS_ERROR_OK;
     DEBUG_FUNCTION_LINE_VERBOSE("[%s] Close %d (handle %08X)", getName().c_str(), real_fd, handle);
     if (close(real_fd) != 0) {
         DEBUG_FUNCTION_LINE_ERR("[%s] Failed to close %d (handle %08X) ", getName().c_str(), real_fd, handle);
-        result = FS_STATUS_MEDIA_ERROR;
+        result = FS_ERROR_MEDIA_ERROR;
     }
     fileHandle->fd = -1;
     return result;
@@ -256,30 +298,29 @@ bool FSWrapper::CheckFileShouldBeIgnored(std::string &path) {
     return false;
 }
 
-FSStatus FSWrapper::FSGetStatWrapper(const char *path, FSStat *stats) {
+FSError FSWrapper::FSGetStatWrapper(const char *path, FSStat *stats) {
     if (path == nullptr || stats == nullptr) {
         DEBUG_FUNCTION_LINE_ERR("[%s] path was or stats nullptr", getName().c_str());
-        return FS_STATUS_FATAL_ERROR;
+        return FS_ERROR_INVALID_PARAM;
     }
 
     if (!IsPathToReplace(path)) {
-        return FS_STATUS_FORCE_PARENT_LAYER;
+        return FS_ERROR_FORCE_PARENT_LAYER;
     }
     auto newPath = GetNewPath(path);
 
     struct stat path_stat {};
 
     if (pCheckIfDeleted && CheckFileShouldBeIgnored(newPath)) {
-        return static_cast<FSStatus>((FS_STATUS_NOT_FOUND & 0x0000FFFF) | FS_STATUS_FORCE_NO_FALLBACK);
+        return static_cast<FSError>((FS_ERROR_NOT_FOUND & FS_ERROR_REAL_MASK) | FS_ERROR_FORCE_NO_FALLBACK);
     }
 
-    FSStatus result = FS_STATUS_OK;
-
+    FSError result = FS_ERROR_OK;
 
     DEBUG_FUNCTION_LINE_VERBOSE("[%s] stat of %s (%s)", getName().c_str(), path, newPath.c_str());
     if (stat(newPath.c_str(), &path_stat) < 0) {
         DEBUG_FUNCTION_LINE_VERBOSE("[%s] Path %s (%s) not found ", getName().c_str(), path, newPath.c_str());
-        result = FS_STATUS_NOT_FOUND;
+        result = FS_ERROR_NOT_FOUND;
     } else {
         memset(&(stats->flags), 0, sizeof(stats->flags));
         if (S_ISDIR(path_stat.st_mode)) {
@@ -296,9 +337,9 @@ FSStatus FSWrapper::FSGetStatWrapper(const char *path, FSStat *stats) {
     return result;
 }
 
-FSStatus FSWrapper::FSGetStatFileWrapper(FSFileHandle handle, FSStat *stats) {
+FSError FSWrapper::FSGetStatFileWrapper(FSFileHandle handle, FSStat *stats) {
     if (!isValidFileHandle(handle)) {
-        return FS_STATUS_FORCE_PARENT_LAYER;
+        return FS_ERROR_FORCE_PARENT_LAYER;
     }
     auto fileHandle = getFileFromHandle(handle);
 
@@ -306,11 +347,11 @@ FSStatus FSWrapper::FSGetStatFileWrapper(FSFileHandle handle, FSStat *stats) {
 
     struct stat path_stat {};
 
-    FSStatus result = FS_STATUS_OK;
+    FSError result = FS_ERROR_OK;
     DEBUG_FUNCTION_LINE_VERBOSE("[%s] fstat of fd %d (FSFileHandle %08X)", getName().c_str(), real_fd, handle);
     if (fstat(real_fd, &path_stat) < 0) {
         DEBUG_FUNCTION_LINE_ERR("[%s] fstat of fd %d (FSFileHandle %08X) failed", getName().c_str(), real_fd, handle);
-        result = FS_STATUS_MEDIA_ERROR;
+        result = FS_ERROR_MEDIA_ERROR;
     } else {
         memset(&(stats->flags), 0, sizeof(stats->flags));
 
@@ -324,44 +365,48 @@ FSStatus FSWrapper::FSGetStatFileWrapper(FSFileHandle handle, FSStat *stats) {
     return result;
 }
 
-FSStatus FSWrapper::FSReadFileWrapper(void *buffer, uint32_t size, uint32_t count, FSFileHandle handle, [[maybe_unused]] uint32_t unk1) {
+FSError FSWrapper::FSReadFileWrapper(void *buffer, uint32_t size, uint32_t count, FSFileHandle handle, [[maybe_unused]] uint32_t unk1) {
     if (!isValidFileHandle(handle)) {
-        return FS_STATUS_FORCE_PARENT_LAYER;
+        return FS_ERROR_FORCE_PARENT_LAYER;
     }
 
     if (size * count == 0) {
-        return FS_STATUS_OK;
+        return FS_ERROR_OK;
     }
 
     if (buffer == nullptr) {
         DEBUG_FUNCTION_LINE_ERR("[%s] buffer is null but size * count is not 0 (It's: %d)", getName().c_str(), size * count);
-        return FS_STATUS_FATAL_ERROR;
+        return FS_ERROR_INVALID_BUFFER;
     }
 
     auto fileHandle = getFileFromHandle(handle);
     int real_fd     = fileHandle->fd;
 
     DEBUG_FUNCTION_LINE_VERBOSE("[%s] Read %u bytes of fd %08X (FSFileHandle %08X) to buffer %08X", getName().c_str(), size * count, real_fd, handle, buffer);
-    int32_t read = readIntoBuffer(real_fd, buffer, size, count);
+    int64_t read = readIntoBuffer(real_fd, buffer, size, count);
 
-    FSStatus result;
+    FSError result;
     if (read < 0) {
         DEBUG_FUNCTION_LINE_ERR("[%s] read %u bytes of fd %d (FSFileHandle %08X) failed", getName().c_str(), size * count, real_fd, handle);
-        result = FS_STATUS_MEDIA_ERROR;
+        auto err = errno;
+        if (err == EBADF || err == EROFS) {
+            return FS_ERROR_ACCESS_ERROR;
+        }
+        result = FS_ERROR_MEDIA_ERROR;
     } else {
-        result = static_cast<FSStatus>((uint32_t) (read & 0xFFFFFFFF) / size);
+        result = static_cast<FSError>(((uint32_t) read) / size);
     }
 
     return result;
 }
 
-FSStatus FSWrapper::FSReadFileWithPosWrapper(void *buffer, uint32_t size, uint32_t count, uint32_t pos, FSFileHandle handle, int32_t unk1) {
+FSError FSWrapper::FSReadFileWithPosWrapper(void *buffer, uint32_t size, uint32_t count, uint32_t pos, FSFileHandle handle, int32_t unk1) {
     if (!isValidFileHandle(handle)) {
-        return FS_STATUS_FORCE_PARENT_LAYER;
+        return FS_ERROR_FORCE_PARENT_LAYER;
     }
     DEBUG_FUNCTION_LINE_VERBOSE("[%s] Read from with position.", getName().c_str());
-    FSStatus result;
-    if ((result = this->FSSetPosFileWrapper(handle, pos)) != FS_STATUS_OK) {
+    FSError result;
+    if ((result = this->FSSetPosFileWrapper(handle, pos)) != FS_ERROR_OK) {
         return result;
     }
 
@@ -370,20 +415,24 @@ FSStatus FSWrapper::FSReadFileWithPosWrapper(void *buffer, uint32_t size, uint32
     return result;
 }
 
-FSStatus FSWrapper::FSSetPosFileWrapper(FSFileHandle handle, uint32_t pos) {
+FSError FSWrapper::FSSetPosFileWrapper(FSFileHandle handle, uint32_t pos) {
     if (!isValidFileHandle(handle)) {
-        return FS_STATUS_FORCE_PARENT_LAYER;
+        return FS_ERROR_FORCE_PARENT_LAYER;
     }
     auto fileHandle = getFileFromHandle(handle);
 
-    FSStatus result = FS_STATUS_OK;
+    FSError result = FS_ERROR_OK;
 
     int real_fd = fileHandle->fd;
 
     DEBUG_FUNCTION_LINE_VERBOSE("[%s] lseek fd %d (FSFileHandle %08X) to get current position for truncation", getName().c_str(), real_fd, handle);
-    if (lseek(real_fd, (off_t) pos, SEEK_SET) != pos) {
+    off_t newPos;
+    if ((newPos = lseek(real_fd, (off_t) pos, SEEK_SET)) != pos) {
         DEBUG_FUNCTION_LINE_ERR("[%s] lseek fd %d (FSFileHandle %08X) to position %u failed", getName().c_str(), real_fd, handle);
-        result = FS_STATUS_MEDIA_ERROR;
+        if (newPos < 0) {
+            // TODO: read errno
+        }
+        result = FS_ERROR_MEDIA_ERROR;
     } else {
         DEBUG_FUNCTION_LINE_VERBOSE("[%s] pos set to %u for fd %d (FSFileHandle %08X)", getName().c_str(), pos, real_fd, handle);
     }
@@ -391,13 +440,13 @@ FSStatus FSWrapper::FSSetPosFileWrapper(FSFileHandle handle, uint32_t pos) {
     return result;
 }
 
-FSStatus FSWrapper::FSGetPosFileWrapper(FSFileHandle handle, uint32_t *pos) {
+FSError FSWrapper::FSGetPosFileWrapper(FSFileHandle handle, uint32_t *pos) {
     if (!isValidFileHandle(handle)) {
-        return FS_STATUS_FORCE_PARENT_LAYER;
+        return FS_ERROR_FORCE_PARENT_LAYER;
     }
     auto fileHandle = getFileFromHandle(handle);
 
-    FSStatus result = FS_STATUS_OK;
+    FSError result = FS_ERROR_OK;
 
     int real_fd = fileHandle->fd;
 
@@ -405,86 +454,88 @@ FSStatus FSWrapper::FSGetPosFileWrapper(FSFileHandle handle, uint32_t *pos) {
     off_t currentPos = lseek(real_fd, (off_t) 0, SEEK_CUR);
     if (currentPos == -1) {
         DEBUG_FUNCTION_LINE_ERR("[%s] Failed to get current position (res: %lld) of fd (handle %08X) to check EoF", getName().c_str(), currentPos, real_fd, handle);
-        result = FS_STATUS_MEDIA_ERROR;
+        result = FS_ERROR_MEDIA_ERROR;
     } else {
         *pos = currentPos;
     }
     return result;
 }
 
-FSStatus FSWrapper::FSIsEofWrapper(FSFileHandle handle) {
+FSError FSWrapper::FSIsEofWrapper(FSFileHandle handle) {
     if (!isValidFileHandle(handle)) {
-        return FS_STATUS_FORCE_PARENT_LAYER;
+        return FS_ERROR_FORCE_PARENT_LAYER;
     }
     auto fileHandle = getFileFromHandle(handle);
 
-    FSStatus result;
+    FSError result;
 
     int real_fd = fileHandle->fd;
 
-    DEBUG_FUNCTION_LINE_VERBOSE("[%s] lseek fd %08X (FSFileHandle %08X) to get current position for truncation", getName().c_str(), real_fd, handle);
+    DEBUG_FUNCTION_LINE_VERBOSE("[%s] lseek fd %08X (FSFileHandle %08X) to get current position for EOF detection", getName().c_str(), real_fd, handle);
     off_t currentPos = lseek(real_fd, (off_t) 0, SEEK_CUR);
-    DEBUG_FUNCTION_LINE_VERBOSE("[%s] lseek fd %08X (FSFileHandle %08X) to get end position for truncation", getName().c_str(), real_fd, handle);
+    DEBUG_FUNCTION_LINE_VERBOSE("[%s] lseek fd %08X (FSFileHandle %08X) to get end position for EOF detection", getName().c_str(), real_fd, handle);
     off_t endPos = lseek(real_fd, (off_t) 0, SEEK_END);
 
     if (currentPos == -1 || endPos == -1) {
+        // TODO: check errno
         DEBUG_FUNCTION_LINE_ERR("[%s] Failed to get current position (res: %lld) or endPos (res: %lld) of fd (handle %08X) to check EoF", getName().c_str(), currentPos, endPos, real_fd, handle);
-        result = FS_STATUS_MEDIA_ERROR;
+        result = FS_ERROR_MEDIA_ERROR;
     } else if (currentPos == endPos) {
         DEBUG_FUNCTION_LINE_VERBOSE("[%s] FSIsEof END for %d\n", getName().c_str(), real_fd);
-        result = FS_STATUS_END;
+        result = FS_ERROR_END_OF_FILE;
     } else {
         lseek(real_fd, currentPos, SEEK_CUR);
         DEBUG_FUNCTION_LINE_VERBOSE("[%s] FSIsEof OK for %d\n", getName().c_str(), real_fd);
-        result = FS_STATUS_OK;
+        result = FS_ERROR_OK;
     }
 
     return result;
 }
 
-FSStatus FSWrapper::FSTruncateFileWrapper(FSFileHandle handle) {
+FSError FSWrapper::FSTruncateFileWrapper(FSFileHandle handle) {
     if (!isValidFileHandle(handle)) {
-        return FS_STATUS_FORCE_PARENT_LAYER;
+        return FS_ERROR_FORCE_PARENT_LAYER;
     }
 
     if (!pIsWriteable) {
         DEBUG_FUNCTION_LINE_VERBOSE("[%s] Tried to truncate fd %d (handle %08X) but layer is not writeable", getName().c_str(), getFileFromHandle(handle)->fd, handle);
-        return FS_STATUS_ACCESS_ERROR;
+        return FS_ERROR_ACCESS_ERROR;
     }
 
     auto fileHandle = getFileFromHandle(handle);
 
-    FSStatus result = FS_STATUS_OK;
+    FSError result = FS_ERROR_OK;
 
     int real_fd = fileHandle->fd;
 
     DEBUG_FUNCTION_LINE_VERBOSE("[%s] lseek fd %08X (FSFileHandle %08X) to get current position for truncation", getName().c_str(), real_fd, handle);
     off_t currentPos = lseek(real_fd, (off_t) 0, SEEK_CUR);
     if (currentPos == -1) {
+        // TODO check errno
         DEBUG_FUNCTION_LINE_ERR("[%s] Failed to get current position of fd (handle %08X) to truncate file", getName().c_str(), real_fd, handle);
-        result = FS_STATUS_MEDIA_ERROR;
+        result = FS_ERROR_MEDIA_ERROR;
     } else {
         DEBUG_FUNCTION_LINE_VERBOSE("[%s] Truncate fd %08X (FSFileHandle %08X) to %lld bytes ", getName().c_str(), real_fd, handle, currentPos);
         if (ftruncate(real_fd, currentPos) < 0) {
             DEBUG_FUNCTION_LINE_ERR("[%s] ftruncate failed for fd %08X (FSFileHandle %08X) errno %d", getName().c_str(), real_fd, handle, errno);
-            result = FS_STATUS_MEDIA_ERROR;
+            result = FS_ERROR_MEDIA_ERROR;
         }
     }
 
     return result;
 }
 
-FSStatus FSWrapper::FSWriteFileWrapper(uint8_t *buffer, uint32_t size, uint32_t count, FSFileHandle handle, [[maybe_unused]] uint32_t unk1) {
+FSError FSWrapper::FSWriteFileWrapper(uint8_t *buffer, uint32_t size, uint32_t count, FSFileHandle handle, [[maybe_unused]] uint32_t unk1) {
     if (!isValidFileHandle(handle)) {
-        return FS_STATUS_FORCE_PARENT_LAYER;
+        return FS_ERROR_FORCE_PARENT_LAYER;
     }
     if (!pIsWriteable) {
         DEBUG_FUNCTION_LINE_VERBOSE("[%s] Tried to write to fd %d (handle %08X) but layer is not writeable", getName().c_str(), getFileFromHandle(handle)->fd, handle);
-        return FS_STATUS_ACCESS_ERROR;
+        return FS_ERROR_ACCESS_ERROR;
     }
     auto fileHandle = getFileFromHandle(handle);
 
-    FSStatus result;
+    FSError result;
 
     int real_fd = fileHandle->fd;
 
@@ -494,26 +545,26 @@ FSStatus FSWrapper::FSWriteFileWrapper(uint8_t *buffer, uint32_t size, uint32_t 
         auto err = errno;
         DEBUG_FUNCTION_LINE_ERR("[%s] Write failed %u bytes to fd %08X (FSFileHandle %08X) from buffer %08X errno %d", getName().c_str(), count * size, real_fd, handle, buffer, err);
         if (err == EFBIG) {
-            result = FS_STATUS_FILE_TOO_BIG;
+            result = FS_ERROR_FILE_TOO_BIG;
         } else if (err == EACCES) {
-            result = FS_STATUS_ACCESS_ERROR;
+            result = FS_ERROR_ACCESS_ERROR;
         } else {
-            result = FS_STATUS_MEDIA_ERROR;
+            result = FS_ERROR_MEDIA_ERROR;
         }
     } else {
-        result = static_cast<FSStatus>((uint32_t) (writeRes & 0xFFFFFFFF) / size);
+        result = static_cast<FSError>(((uint32_t) writeRes) / size);
     }
 
     return result;
 }
 
-FSStatus FSWrapper::FSRemoveWrapper(const char *path) {
+FSError FSWrapper::FSRemoveWrapper(const char *path) {
     if (!IsPathToReplace(path)) {
-        return FS_STATUS_FORCE_PARENT_LAYER;
+        return FS_ERROR_FORCE_PARENT_LAYER;
     }
     if (!pIsWriteable) {
         DEBUG_FUNCTION_LINE_VERBOSE("[%s] Tried to remove %s but layer is not writeable", getName().c_str(), path);
-        return FS_STATUS_ACCESS_ERROR;
+        return FS_ERROR_PERMISSION_ERROR;
     }
     auto newPath = GetNewPath(path);
     DEBUG_FUNCTION_LINE_VERBOSE("[%s] Remove %s (%s)", getName().c_str(), path, newPath.c_str());
@@ -521,26 +572,26 @@ FSStatus FSWrapper::FSRemoveWrapper(const char *path) {
         auto err = errno;
         DEBUG_FUNCTION_LINE_ERR("[%s] rename failed %s (%s) errno %d", getName().c_str(), path, newPath.c_str(), err);
         if (err == ENOTDIR) {
-            return FS_STATUS_NOT_DIR;
+            return FS_ERROR_NOT_DIR;
         } else if (err == EACCES) {
-            return FS_STATUS_ACCESS_ERROR;
+            return FS_ERROR_ACCESS_ERROR;
         } else if (err == EISDIR) {
-            return FS_STATUS_NOT_FILE;
+            return FS_ERROR_NOT_FILE;
         } else if (err == EPERM) {
-            return FS_STATUS_PERMISSION_ERROR;
+            return FS_ERROR_PERMISSION_ERROR;
         }
-        return FS_STATUS_MEDIA_ERROR;
+        return FS_ERROR_MEDIA_ERROR;
     }
-    return FS_STATUS_OK;
+    return FS_ERROR_OK;
 }
 
-FSStatus FSWrapper::FSRenameWrapper(const char *oldPath, const char *newPath) {
+FSError FSWrapper::FSRenameWrapper(const char *oldPath, const char *newPath) {
     if (!IsPathToReplace(oldPath) || !IsPathToReplace(newPath)) {
-        return FS_STATUS_FORCE_PARENT_LAYER;
+        return FS_ERROR_FORCE_PARENT_LAYER;
     }
     if (!pIsWriteable) {
         DEBUG_FUNCTION_LINE_VERBOSE("[%s] Tried to rename %s to %s but layer is not writeable", getName().c_str(), oldPath, newPath);
-        return FS_STATUS_ACCESS_ERROR;
+        return FS_ERROR_PERMISSION_ERROR;
     }
     auto oldPathRedirect = GetNewPath(oldPath);
     auto newPathRedirect = GetNewPath(newPath);
@@ -549,36 +600,41 @@ FSStatus FSWrapper::FSRenameWrapper(const char *oldPath, const char *newPath) {
         auto err = errno;
         DEBUG_FUNCTION_LINE_ERR("[%s] Rename failed %s (%s) -> %s (%s). errno %d", getName().c_str(), oldPath, oldPathRedirect.c_str(), newPath, newPathRedirect.c_str(), err);
         if (err == ENOTDIR) {
-            return FS_STATUS_NOT_DIR;
+            return FS_ERROR_NOT_DIR;
         } else if (err == EACCES) {
-            return FS_STATUS_ACCESS_ERROR;
+            return FS_ERROR_ACCESS_ERROR;
         } else if (err == EISDIR) {
-            return FS_STATUS_NOT_FILE;
+            return FS_ERROR_NOT_FILE;
         } else if (err == EPERM) {
-            return FS_STATUS_PERMISSION_ERROR;
+            return FS_ERROR_PERMISSION_ERROR;
         }
-        return FS_STATUS_MEDIA_ERROR;
+        return FS_ERROR_MEDIA_ERROR;
     }
-    return FS_STATUS_OK;
+    return FS_ERROR_OK;
 }
 
-FSStatus FSWrapper::FSFlushFileWrapper(FSFileHandle handle) {
+FSError FSWrapper::FSFlushFileWrapper(FSFileHandle handle) {
     if (!isValidFileHandle(handle)) {
-        return FS_STATUS_FORCE_PARENT_LAYER;
+        return FS_ERROR_FORCE_PARENT_LAYER;
     }
     if (!pIsWriteable) {
         DEBUG_FUNCTION_LINE_VERBOSE("[%s] Tried to fsync fd %d (handle %08X)) but layer is not writeable", getName().c_str(), getFileFromHandle(handle)->fd, handle);
-        return FS_STATUS_ACCESS_ERROR;
+        return FS_ERROR_ACCESS_ERROR;
     }
 
     auto fileHandle = getFileFromHandle(handle);
     int real_fd     = fileHandle->fd;
 
     DEBUG_FUNCTION_LINE_VERBOSE("[%s] fsync fd %08X (FSFileHandle %08X)", real_fd, handle);
-    FSStatus result = FS_STATUS_OK;
+    FSError result = FS_ERROR_OK;
     if (fsync(real_fd) < 0) {
         DEBUG_FUNCTION_LINE_ERR("[%s] fsync failed for fd %08X (FSFileHandle %08X)", getName().c_str(), real_fd, handle);
-        result = FS_STATUS_MEDIA_ERROR;
+        auto err = errno;
+        if (err == EBADF) {
+            result = FS_ERROR_INVALID_FILEHANDLE;
+        } else {
+            result = FS_ERROR_MEDIA_ERROR;
+        }
     }
     return result;
 }
