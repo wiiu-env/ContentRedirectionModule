@@ -332,7 +332,7 @@ FSError FSWrapper::FSGetStatWrapper(const char *path, FSStat *stats) {
             stats->owner = path_stat.st_uid;
             stats->group = path_stat.st_gid;
         }
-        DEBUG_FUNCTION_LINE_VERBOSE("[%s] Stats file for %s (%s), size %016llX", getName().c_str(), path, newPath.c_str(), stats->size);
+        DEBUG_FUNCTION_LINE_VERBOSE("[%s] Stats file for %s (%s), size %08X", getName().c_str(), path, newPath.c_str(), stats->size);
     }
     return result;
 }
