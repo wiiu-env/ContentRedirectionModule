@@ -21,11 +21,11 @@ std::string getFullPathForFSClient(FSClient *pClient, const char *path) {
     std::string res;
 
     if (path[0] != '/' && path[0] != '\\') {
-        if (workingDirsFS.count(pClient) > 0) {
-            res = string_format("%s%s", workingDirsFS.at(pClient).c_str(), path);
-        } else {
-            DEBUG_FUNCTION_LINE_ERR("Failed to find working dir for client");
+        if (workingDirsFS.count(pClient) == 0) {
+            DEBUG_FUNCTION_LINE_WARN("No working dir found for FS client %08X, fallback to \"/\"", pClient);
+            workingDirsFS[pClient] = "/";
         }
+        res = string_format("%s%s", workingDirsFS.at(pClient).c_str(), path);
     } else {
         res = path;
     }
