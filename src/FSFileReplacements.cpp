@@ -1,8 +1,6 @@
 #include "FSFileReplacements.h"
 #include "FileUtils.h"
 #include "utils/logger.h"
-#include <coreinit/dynload.h>
-#include <cstdarg>
 
 DECL_FUNCTION(FSStatus, FSOpenFileEx, FSClient *client, FSCmdBlock *block, const char *path, const char *mode, FSMode createMode, FSOpenFileFlags openFlag, uint32_t preallocSize, FSFileHandle *handle, FSErrorFlag errorMask) {
     DEBUG_FUNCTION_LINE_VERBOSE("%s", path);
@@ -73,7 +71,7 @@ DECL_FUNCTION(FSStatus, FSOpenFileAsync, FSClient *client, FSCmdBlock *block, co
 }
 
 DECL_FUNCTION(FSStatus, FSCloseFile, FSClient *client, FSCmdBlock *block, FSFileHandle handle, FSErrorFlag errorMask) {
-    DEBUG_FUNCTION_LINE_VERBOSE("");
+    DEBUG_FUNCTION_LINE_VERBOSE("%08X", handle);
     if (isForceRealFunction(errorMask)) {
         return real_FSCloseFile(client, block, handle, errorMask);
     }
@@ -98,7 +96,7 @@ DECL_FUNCTION(FSStatus, FSCloseFile, FSClient *client, FSCmdBlock *block, FSFile
 }
 
 DECL_FUNCTION(FSStatus, FSCloseFileAsync, FSClient *client, FSCmdBlock *block, FSFileHandle handle, FSErrorFlag errorMask, FSAsyncData *asyncData) {
-    DEBUG_FUNCTION_LINE_VERBOSE("");
+    DEBUG_FUNCTION_LINE_VERBOSE("%08X", handle);
     if (isForceRealFunction(errorMask)) {
         return real_FSCloseFileAsync(client, block, handle, getRealErrorFlag(errorMask), asyncData);
     }
@@ -157,7 +155,7 @@ DECL_FUNCTION(FSStatus, FSGetStatAsync, FSClient *client, FSCmdBlock *block, con
 }
 
 DECL_FUNCTION(FSStatus, FSGetStatFile, FSClient *client, FSCmdBlock *block, FSFileHandle handle, FSStat *stats, FSErrorFlag errorMask) {
-    DEBUG_FUNCTION_LINE_VERBOSE("");
+    DEBUG_FUNCTION_LINE_VERBOSE("handle: %08X", handle);
     if (isForceRealFunction(errorMask)) {
         return real_FSGetStatFile(client, block, handle, stats, getRealErrorFlag(errorMask));
     }
@@ -174,7 +172,7 @@ DECL_FUNCTION(FSStatus, FSGetStatFile, FSClient *client, FSCmdBlock *block, FSFi
 }
 
 DECL_FUNCTION(FSStatus, FSGetStatFileAsync, FSClient *client, FSCmdBlock *block, FSFileHandle handle, FSStat *stats, FSErrorFlag errorMask, FSAsyncData *asyncData) {
-    DEBUG_FUNCTION_LINE_VERBOSE("");
+    DEBUG_FUNCTION_LINE_VERBOSE("handle: %08X", handle);
     if (isForceRealFunction(errorMask)) {
         return real_FSGetStatFileAsync(client, block, handle, stats, getRealErrorFlag(errorMask), asyncData);
     }
@@ -191,7 +189,7 @@ DECL_FUNCTION(FSStatus, FSGetStatFileAsync, FSClient *client, FSCmdBlock *block,
 }
 
 DECL_FUNCTION(FSStatus, FSReadFile, FSClient *client, FSCmdBlock *block, void *buffer, uint32_t size, uint32_t count, FSFileHandle handle, uint32_t unk1, FSErrorFlag errorMask) {
-    DEBUG_FUNCTION_LINE_VERBOSE("");
+    DEBUG_FUNCTION_LINE_VERBOSE("handle: %08X buffer: %08X size: %08X", handle, buffer, size * count);
     if (isForceRealFunction(errorMask)) {
         return real_FSReadFile(client, block, buffer, size, count, handle, unk1, errorMask);
     }
@@ -209,7 +207,7 @@ DECL_FUNCTION(FSStatus, FSReadFile, FSClient *client, FSCmdBlock *block, void *b
 
 DECL_FUNCTION(FSStatus, FSReadFileAsync, FSClient *client, FSCmdBlock *block, void *buffer, uint32_t size, uint32_t count, FSFileHandle handle, uint32_t unk1, FSErrorFlag errorMask,
               FSAsyncData *asyncData) {
-    DEBUG_FUNCTION_LINE_VERBOSE("");
+    DEBUG_FUNCTION_LINE_VERBOSE("handle: %08X buffer: %08X size: %08X", handle, buffer, size * count);
     if (isForceRealFunction(errorMask)) {
         return real_FSReadFileAsync(client, block, buffer, size, count, handle, unk1, getRealErrorFlag(errorMask), asyncData);
     }
@@ -226,7 +224,7 @@ DECL_FUNCTION(FSStatus, FSReadFileAsync, FSClient *client, FSCmdBlock *block, vo
 }
 
 DECL_FUNCTION(FSStatus, FSReadFileWithPos, FSClient *client, FSCmdBlock *block, void *buffer, uint32_t size, uint32_t count, uint32_t pos, FSFileHandle handle, uint32_t unk1, FSErrorFlag errorMask) {
-    DEBUG_FUNCTION_LINE_VERBOSE("");
+    DEBUG_FUNCTION_LINE_VERBOSE("handle: %08X buffer: %08X size: %08X pos: %08X", handle, buffer, size * count, pos);
     if (isForceRealFunction(errorMask)) {
         return real_FSReadFileWithPos(client, block, buffer, size, count, pos, handle, unk1, errorMask);
     }
@@ -244,7 +242,7 @@ DECL_FUNCTION(FSStatus, FSReadFileWithPos, FSClient *client, FSCmdBlock *block, 
 
 DECL_FUNCTION(FSStatus, FSReadFileWithPosAsync, FSClient *client, FSCmdBlock *block, void *buffer, uint32_t size, uint32_t count, uint32_t pos, FSFileHandle handle, int32_t unk1, FSErrorFlag errorMask,
               FSAsyncData *asyncData) {
-    DEBUG_FUNCTION_LINE_VERBOSE("");
+    DEBUG_FUNCTION_LINE_VERBOSE("handle: %08X buffer: %08X size: %08X pos: %08X", handle, buffer, size * count, pos);
     if (isForceRealFunction(errorMask)) {
         return real_FSReadFileWithPosAsync(client, block, buffer, size, count, pos, handle, unk1, getRealErrorFlag(errorMask), asyncData);
     }
@@ -261,7 +259,7 @@ DECL_FUNCTION(FSStatus, FSReadFileWithPosAsync, FSClient *client, FSCmdBlock *bl
 }
 
 DECL_FUNCTION(FSStatus, FSSetPosFile, FSClient *client, FSCmdBlock *block, FSFileHandle handle, uint32_t pos, FSErrorFlag errorMask) {
-    DEBUG_FUNCTION_LINE_VERBOSE("");
+    DEBUG_FUNCTION_LINE_VERBOSE("handle: %08X pos: %08X", handle, pos);
     if (isForceRealFunction(errorMask)) {
         return real_FSSetPosFile(client, block, handle, pos, errorMask);
     }
@@ -278,7 +276,7 @@ DECL_FUNCTION(FSStatus, FSSetPosFile, FSClient *client, FSCmdBlock *block, FSFil
 }
 
 DECL_FUNCTION(FSStatus, FSSetPosFileAsync, FSClient *client, FSCmdBlock *block, FSFileHandle handle, uint32_t pos, FSErrorFlag errorMask, FSAsyncData *asyncData) {
-    DEBUG_FUNCTION_LINE_VERBOSE("");
+    DEBUG_FUNCTION_LINE_VERBOSE("handle: %08X pos: %08X", handle, pos);
     if (isForceRealFunction(errorMask)) {
         return real_FSSetPosFileAsync(client, block, handle, pos, getRealErrorFlag(errorMask), asyncData);
     }
@@ -295,7 +293,7 @@ DECL_FUNCTION(FSStatus, FSSetPosFileAsync, FSClient *client, FSCmdBlock *block, 
 }
 
 DECL_FUNCTION(FSStatus, FSGetPosFile, FSClient *client, FSCmdBlock *block, FSFileHandle handle, uint32_t *pos, FSErrorFlag errorMask) {
-    DEBUG_FUNCTION_LINE_VERBOSE("");
+    DEBUG_FUNCTION_LINE_VERBOSE("%08X", handle);
     if (isForceRealFunction(errorMask)) {
         return real_FSGetPosFile(client, block, handle, pos, errorMask);
     }
@@ -312,7 +310,7 @@ DECL_FUNCTION(FSStatus, FSGetPosFile, FSClient *client, FSCmdBlock *block, FSFil
 }
 
 DECL_FUNCTION(FSStatus, FSGetPosFileAsync, FSClient *client, FSCmdBlock *block, FSFileHandle handle, uint32_t *pos, FSErrorFlag errorMask, FSAsyncData *asyncData) {
-    DEBUG_FUNCTION_LINE_VERBOSE("");
+    DEBUG_FUNCTION_LINE_VERBOSE("%08X", handle);
     if (isForceRealFunction(errorMask)) {
         return real_FSGetPosFileAsync(client, block, handle, pos, getRealErrorFlag(errorMask), asyncData);
     }
@@ -329,7 +327,7 @@ DECL_FUNCTION(FSStatus, FSGetPosFileAsync, FSClient *client, FSCmdBlock *block, 
 }
 
 DECL_FUNCTION(FSStatus, FSIsEof, FSClient *client, FSCmdBlock *block, FSFileHandle handle, FSErrorFlag errorMask) {
-    DEBUG_FUNCTION_LINE_VERBOSE("");
+    DEBUG_FUNCTION_LINE_VERBOSE("%08X", handle);
     if (isForceRealFunction(errorMask)) {
         return real_FSIsEof(client, block, handle, errorMask);
     }
@@ -346,7 +344,7 @@ DECL_FUNCTION(FSStatus, FSIsEof, FSClient *client, FSCmdBlock *block, FSFileHand
 }
 
 DECL_FUNCTION(FSStatus, FSIsEofAsync, FSClient *client, FSCmdBlock *block, FSFileHandle handle, FSErrorFlag errorMask, FSAsyncData *asyncData) {
-    DEBUG_FUNCTION_LINE_VERBOSE("");
+    DEBUG_FUNCTION_LINE_VERBOSE("%08X", handle);
     if (isForceRealFunction(errorMask)) {
         return real_FSIsEofAsync(client, block, handle, getRealErrorFlag(errorMask), asyncData);
     }
@@ -363,7 +361,7 @@ DECL_FUNCTION(FSStatus, FSIsEofAsync, FSClient *client, FSCmdBlock *block, FSFil
 }
 
 DECL_FUNCTION(FSStatus, FSWriteFile, FSClient *client, FSCmdBlock *block, uint8_t *buffer, uint32_t size, uint32_t count, FSFileHandle handle, uint32_t unk1, FSErrorFlag errorMask) {
-    DEBUG_FUNCTION_LINE_VERBOSE("");
+    DEBUG_FUNCTION_LINE_VERBOSE("handle: %08X buffer: %08X size: %08X", handle, buffer, size * count);
     if (isForceRealFunction(errorMask)) {
         return real_FSWriteFile(client, block, buffer, size, count, handle, unk1, errorMask);
     }
@@ -381,7 +379,7 @@ DECL_FUNCTION(FSStatus, FSWriteFile, FSClient *client, FSCmdBlock *block, uint8_
 
 DECL_FUNCTION(FSStatus, FSWriteFileAsync, FSClient *client, FSCmdBlock *block, uint8_t *buffer, uint32_t size, uint32_t count, FSFileHandle handle, uint32_t unk1, FSErrorFlag errorMask,
               FSAsyncData *asyncData) {
-    DEBUG_FUNCTION_LINE_VERBOSE("");
+    DEBUG_FUNCTION_LINE_VERBOSE("handle: %08X buffer: %08X size: %08X", handle, buffer, size * count);
     if (isForceRealFunction(errorMask)) {
         return real_FSWriteFileAsync(client, block, buffer, size, count, handle, unk1, getRealErrorFlag(errorMask), asyncData);
     }
@@ -398,7 +396,7 @@ DECL_FUNCTION(FSStatus, FSWriteFileAsync, FSClient *client, FSCmdBlock *block, u
 }
 
 DECL_FUNCTION(FSStatus, FSTruncateFile, FSClient *client, FSCmdBlock *block, FSFileHandle handle, FSErrorFlag errorMask) {
-    DEBUG_FUNCTION_LINE_VERBOSE("");
+    DEBUG_FUNCTION_LINE_VERBOSE("%08X", handle);
     if (isForceRealFunction(errorMask)) {
         return real_FSTruncateFile(client, block, handle, errorMask);
     }
@@ -415,7 +413,7 @@ DECL_FUNCTION(FSStatus, FSTruncateFile, FSClient *client, FSCmdBlock *block, FSF
 }
 
 DECL_FUNCTION(FSStatus, FSTruncateFileAsync, FSClient *client, FSCmdBlock *block, FSFileHandle handle, FSErrorFlag errorMask, FSAsyncData *asyncData) {
-    DEBUG_FUNCTION_LINE_VERBOSE("");
+    DEBUG_FUNCTION_LINE_VERBOSE("%08X", handle);
     if (isForceRealFunction(errorMask)) {
         return real_FSTruncateFileAsync(client, block, handle, getRealErrorFlag(errorMask), asyncData);
     }
@@ -506,7 +504,7 @@ DECL_FUNCTION(FSStatus, FSRenameAsync,
 }
 
 DECL_FUNCTION(FSStatus, FSFlushFile, FSClient *client, FSCmdBlock *block, [[maybe_unused]] FSFileHandle handle, [[maybe_unused]] FSErrorFlag errorMask) {
-    DEBUG_FUNCTION_LINE_VERBOSE("");
+    DEBUG_FUNCTION_LINE_VERBOSE("%08X", handle);
     if (isForceRealFunction(errorMask)) {
         return real_FSFlushFile(client, block, handle, errorMask);
     }
@@ -523,7 +521,7 @@ DECL_FUNCTION(FSStatus, FSFlushFile, FSClient *client, FSCmdBlock *block, [[mayb
 }
 
 DECL_FUNCTION(FSStatus, FSFlushFileAsync, FSClient *client, FSCmdBlock *block, [[maybe_unused]] FSFileHandle handle, [[maybe_unused]] FSErrorFlag errorMask, FSAsyncData *asyncData) {
-    DEBUG_FUNCTION_LINE_VERBOSE("");
+    DEBUG_FUNCTION_LINE_VERBOSE("%08X", handle);
     if (isForceRealFunction(errorMask)) {
         return real_FSFlushFileAsync(client, block, handle, getRealErrorFlag(errorMask), asyncData);
     }
@@ -547,13 +545,18 @@ DECL_FUNCTION(FSStatus, FSChangeModeAsync,
               [[maybe_unused]] FSMode modeMask,
               [[maybe_unused]] FSErrorFlag errorMask,
               FSAsyncData *asyncData) {
-    DEBUG_FUNCTION_LINE_ERR("NOT IMPLEMENTED FSChangeModeAsync %s mode: %08X", path, mode);
+    DEBUG_FUNCTION_LINE_ERR("NOT IMPLEMENTED path %s mode: %08X", path, mode);
     return real_FSChangeModeAsync(client, block, path, mode, modeMask, errorMask, asyncData);
 }
 
 DECL_FUNCTION(FSStatus, FSGetFreeSpaceSizeAsync, FSClient *client, FSCmdBlock *block, const char *path, [[maybe_unused]] uint64_t *outSize, [[maybe_unused]] FSErrorFlag errorMask, FSAsyncData *asyncData) {
-    DEBUG_FUNCTION_LINE_ERR("NOT IMPLEMENTED FSGetFreeSpaceSizeAsync %s", path);
+    DEBUG_FUNCTION_LINE_ERR("NOT IMPLEMENTED. Path: %s", path);
     return real_FSGetFreeSpaceSizeAsync(client, block, path, outSize, errorMask, asyncData);
+}
+
+DECL_FUNCTION(FSStatus, FSWriteFileWithPosAsync, FSClient *client, FSCmdBlock *block, uint8_t *buffer, uint32_t size, uint32_t count, uint32_t pos, FSFileHandle handle, uint32_t unk1, FSErrorFlag errorMask, FSAsyncData *asyncData) {
+    DEBUG_FUNCTION_LINE_ERR("NOT IMPLEMENTED. handle %08X size %08X", handle, size * count);
+    return real_FSWriteFileWithPosAsync(client, block, buffer, size, count, pos, handle, unk1, errorMask, asyncData);
 }
 
 function_replacement_data_t fs_file_function_replacements[] = {
@@ -603,6 +606,8 @@ function_replacement_data_t fs_file_function_replacements[] = {
         REPLACE_FUNCTION(FSFlushFileAsync, LIBRARY_COREINIT, FSFlushFileAsync),
 
         REPLACE_FUNCTION(FSChangeModeAsync, LIBRARY_COREINIT, FSChangeModeAsync),
+
+        REPLACE_FUNCTION(FSWriteFileWithPosAsync, LIBRARY_COREINIT, FSWriteFileWithPosAsync),
 
         //REPLACE_FUNCTION(FSGetFreeSpaceSizeAsync, LIBRARY_COREINIT, FSGetFreeSpaceSizeAsync),
         //REPLACE_FUNCTION_VIA_ADDRESS(FSGetFreeSpaceSizeAsync, LIBRARY_COREINIT, 0x0A000000 + 0x0256079c),
