@@ -99,13 +99,24 @@ FSError FSWrapper::FSReadDirWrapper(FSDirectoryHandle handle, FSDirectoryEntry *
                     entry->info.size = 0;
                 } else {
                     struct stat sb {};
-                    auto strLen = strlen(dirHandle->path) + 1 + strlen(entry_->d_name) + 1;
-                    char path[strLen];
-                    snprintf(path, sizeof(path), "%s/%s", dirHandle->path, entry_->d_name);
-                    if (stat(path, &sb) >= 0) {
+                    auto path = string_format("%s/%s", dirHandle->path, entry_->d_name);
+                    std::replace(path.begin(), path.end(), '\\', '/');
+
+                    uint32_t length = path.size();
+
+                    //! clear path of double slashes
+                    for (uint32_t i = 1; i < length; ++i) {
+                        if (path[i - 1] == '/' && path[i] == '/') {
+                            path.erase(i, 1);
+                            i--;
+                            length--;
+                        }
+                    }
+
+                    if (stat(path.c_str(), &sb) >= 0) {
                         translate_stat(&sb, &entry->info);
                     } else {
-                        DEBUG_FUNCTION_LINE_ERR("[%s] Failed to stat file (%s) in read dir %08X (dir handle %08X)", getName().c_str(), path, dir, handle);
+                        DEBUG_FUNCTION_LINE_ERR("[%s] Failed to stat file (%s) in read dir %08X (dir handle %08X)", getName().c_str(), path.c_str(), dir, handle);
                         result = FS_ERROR_MEDIA_ERROR;
                         break;
                     }
@@ -222,11 +233,12 @@ FSError FSWrapper::FSOpenFileWrapper(const char *path, const char *mode, FSFileH
         auto fileHandle = getNewFileHandle();
         if (fileHandle) {
             std::lock_guard<std::mutex> lock(openFilesMutex);
-            DEBUG_FUNCTION_LINE_VERBOSE("[%s] Opened %s (as %s) mode %s, fd %d (%08X)", getName().c_str(), path, newPath.c_str(), mode, fd, handle);
 
             fileHandle->handle = (((uint32_t) fileHandle.get()) & 0x0FFFFFFF) | 0x30000000;
             *handle            = fileHandle->handle;
             fileHandle->fd     = fd;
+
+            DEBUG_FUNCTION_LINE_VERBOSE("[%s] Opened %s (as %s) mode %s (%08X), fd %d (%08X)", getName().c_str(), path, newPath.c_str(), mode, _mode, fd, fileHandle->handle);
 
             openFiles.push_back(fileHandle);
 
