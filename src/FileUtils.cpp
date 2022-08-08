@@ -6,23 +6,23 @@
 #include "utils/utils.h"
 #include <coreinit/cache.h>
 #include <coreinit/filesystem_fsa.h>
-#include <coreinit/thread.h>
 #include <map>
 #include <unistd.h>
-#include <wums.h>
 
-std::mutex workingDirMutex;
-std::map<FSClient *, std::string> workingDirs;
+std::mutex workingDirMutexFS;
+std::map<FSClient *, std::string> workingDirsFS;
 
 std::mutex fsLayerMutex;
 std::vector<std::unique_ptr<IFSWrapper>> fsLayers;
 
-std::string getFullPathForClient(FSClient *pClient, const char *path) {
+std::string getFullPathForFSClient(FSClient *pClient, const char *path) {
+    std::lock_guard<std::mutex> workingDirLock(workingDirMutexFS);
+
     std::string res;
 
     if (path[0] != '/' && path[0] != '\\') {
-        if (workingDirs.count(pClient) > 0) {
-            res = string_format("%s%s", workingDirs.at(pClient).c_str(), path);
+        if (workingDirsFS.count(pClient) > 0) {
+            res = string_format("%s%s", workingDirsFS.at(pClient).c_str(), path);
         } else {
             DEBUG_FUNCTION_LINE_ERR("Failed to find working dir for client");
         }
@@ -35,17 +35,17 @@ std::string getFullPathForClient(FSClient *pClient, const char *path) {
     return res;
 }
 
-void setWorkingDir(FSClient *client, const char *path) {
-    std::lock_guard<std::mutex> workingDirLock(workingDirMutex);
+void setWorkingDirForFSClient(FSClient *client, const char *path) {
+    std::lock_guard<std::mutex> workingDirLock(workingDirMutexFS);
 
-    workingDirs[client] = path;
+    workingDirsFS[client] = path;
     OSMemoryBarrier();
 }
 
 void clearFSLayer() {
     {
-        std::lock_guard<std::mutex> workingDirLock(workingDirMutex);
-        workingDirs.clear();
+        std::lock_guard<std::mutex> workingDirLock(workingDirMutexFS);
+        workingDirsFS.clear();
     }
     {
         std::lock_guard<std::mutex> layerLock(fsLayerMutex);

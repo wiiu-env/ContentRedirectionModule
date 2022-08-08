@@ -15,7 +15,7 @@ DECL_FUNCTION(FSStatus, FSOpenFileEx, FSClient *client, FSCmdBlock *block, const
             [c = client, b = block, p = path, m = mode, cm = createMode, of = openFlag, pa = preallocSize, h = handle](FSErrorFlag realErrorMask) -> FSStatus {
                 return real_FSOpenFileEx(c, b, p, m, cm, of, pa, h, realErrorMask);
             },
-            [f = getFullPathForClient(client, path), m = mode, h = handle](std::unique_ptr<IFSWrapper> &layer) -> FSError {
+            [f = getFullPathForFSClient(client, path), m = mode, h = handle](std::unique_ptr<IFSWrapper> &layer) -> FSError {
                 return layer->FSOpenFileWrapper(f.c_str(), m, h);
             },
             SYNC_RESULT_HANDLER);
@@ -32,7 +32,7 @@ DECL_FUNCTION(FSStatus, FSOpenFileExAsync, FSClient *client, FSCmdBlock *block, 
             [c = client, b = block, p = path, m = mode, cm = createMode, of = openFlag, pa = preallocSize, h = handle, a = asyncData](FSErrorFlag realErrorMask) -> FSStatus {
                 return real_FSOpenFileExAsync(c, b, p, m, cm, of, pa, h, realErrorMask, a);
             },
-            [p = getFullPathForClient(client, path), m = mode, h = handle](std::unique_ptr<IFSWrapper> &layer) -> FSError {
+            [p = getFullPathForFSClient(client, path), m = mode, h = handle](std::unique_ptr<IFSWrapper> &layer) -> FSError {
                 return layer->FSOpenFileWrapper(p.c_str(), m, h);
             },
             ASYNC_RESULT_HANDLER);
@@ -49,7 +49,7 @@ DECL_FUNCTION(FSStatus, FSOpenFile, FSClient *client, FSCmdBlock *block, char *p
             [c = client, b = block, p = path, m = mode, h = handle](FSErrorFlag realErrorMask) -> FSStatus {
                 return real_FSOpenFile(c, b, p, m, h, realErrorMask);
             },
-            [f = getFullPathForClient(client, path), m = mode, h = handle](std::unique_ptr<IFSWrapper> &layer) -> FSError {
+            [f = getFullPathForFSClient(client, path), m = mode, h = handle](std::unique_ptr<IFSWrapper> &layer) -> FSError {
                 return layer->FSOpenFileWrapper(f.c_str(), m, h);
             },
             SYNC_RESULT_HANDLER);
@@ -66,7 +66,7 @@ DECL_FUNCTION(FSStatus, FSOpenFileAsync, FSClient *client, FSCmdBlock *block, co
             [c = client, b = block, p = path, m = mode, h = handle, a = asyncData](FSErrorFlag realErrorMask) -> FSStatus {
                 return real_FSOpenFileAsync(c, b, p, m, h, realErrorMask, a);
             },
-            [p = getFullPathForClient(client, path), m = mode, h = handle](std::unique_ptr<IFSWrapper> &layer) -> FSError {
+            [p = getFullPathForFSClient(client, path), m = mode, h = handle](std::unique_ptr<IFSWrapper> &layer) -> FSError {
                 return layer->FSOpenFileWrapper(p.c_str(), m, h);
             },
             ASYNC_RESULT_HANDLER);
@@ -133,7 +133,7 @@ DECL_FUNCTION(FSStatus, FSGetStat, FSClient *client, FSCmdBlock *block, const ch
             [c = client, b = block, p = path, s = stats](FSErrorFlag realErrorMask) -> FSStatus {
                 return real_FSGetStat(c, b, p, s, realErrorMask);
             },
-            [p = getFullPathForClient(client, path), s = stats](std::unique_ptr<IFSWrapper> &layer) -> FSError {
+            [p = getFullPathForFSClient(client, path), s = stats](std::unique_ptr<IFSWrapper> &layer) -> FSError {
                 return layer->FSGetStatWrapper(p.c_str(), s);
             },
             SYNC_RESULT_HANDLER);
@@ -150,7 +150,7 @@ DECL_FUNCTION(FSStatus, FSGetStatAsync, FSClient *client, FSCmdBlock *block, con
             [c = client, b = block, p = path, s = stats, a = asyncData](FSErrorFlag realErrorMask) -> FSStatus {
                 return real_FSGetStatAsync(c, b, p, s, realErrorMask, a);
             },
-            [p = getFullPathForClient(client, path), s = stats](std::unique_ptr<IFSWrapper> &layer) -> FSError {
+            [p = getFullPathForFSClient(client, path), s = stats](std::unique_ptr<IFSWrapper> &layer) -> FSError {
                 return layer->FSGetStatWrapper(p.c_str(), s);
             },
             ASYNC_RESULT_HANDLER);
@@ -442,7 +442,7 @@ DECL_FUNCTION(FSStatus, FSRemove, FSClient *client, FSCmdBlock *block, const cha
             [c = client, b = block, p = path](FSErrorFlag realErrorMask) -> FSStatus {
                 return real_FSRemove(c, b, p, realErrorMask);
             },
-            [p = getFullPathForClient(client, path)](std::unique_ptr<IFSWrapper> &layer) -> FSError {
+            [p = getFullPathForFSClient(client, path)](std::unique_ptr<IFSWrapper> &layer) -> FSError {
                 return layer->FSRemoveWrapper(p.c_str());
             },
             SYNC_RESULT_HANDLER);
@@ -459,7 +459,7 @@ DECL_FUNCTION(FSStatus, FSRemoveAsync, FSClient *client, FSCmdBlock *block, cons
             [c = client, b = block, p = path, a = asyncData](FSErrorFlag realErrorMask) -> FSStatus {
                 return real_FSRemoveAsync(c, b, p, realErrorMask, a);
             },
-            [p = getFullPathForClient(client, path)](std::unique_ptr<IFSWrapper> &layer) -> FSError {
+            [p = getFullPathForFSClient(client, path)](std::unique_ptr<IFSWrapper> &layer) -> FSError {
                 return layer->FSRemoveWrapper(p.c_str());
             },
             ASYNC_RESULT_HANDLER);
@@ -476,7 +476,7 @@ DECL_FUNCTION(FSStatus, FSRename, FSClient *client, FSCmdBlock *block, const cha
             [c = client, b = block, oP = oldPath, nP = newPath](FSErrorFlag realErrorMask) -> FSStatus {
                 return real_FSRename(c, b, oP, nP, realErrorMask);
             },
-            [oP = getFullPathForClient(client, oldPath), nP = getFullPathForClient(client, newPath)](std::unique_ptr<IFSWrapper> &layer) -> FSError {
+            [oP = getFullPathForFSClient(client, oldPath), nP = getFullPathForFSClient(client, newPath)](std::unique_ptr<IFSWrapper> &layer) -> FSError {
                 return layer->FSRenameWrapper(oP.c_str(), nP.c_str());
             },
             SYNC_RESULT_HANDLER);
@@ -499,7 +499,7 @@ DECL_FUNCTION(FSStatus, FSRenameAsync,
             [c = client, b = block, oP = oldPath, nP = newPath, a = asyncData](FSErrorFlag realErrorMask) -> FSStatus {
                 return real_FSRenameAsync(c, b, oP, nP, realErrorMask, a);
             },
-            [oP = getFullPathForClient(client, oldPath), nP = getFullPathForClient(client, newPath)](std::unique_ptr<IFSWrapper> &layer) -> FSError {
+            [oP = getFullPathForFSClient(client, oldPath), nP = getFullPathForFSClient(client, newPath)](std::unique_ptr<IFSWrapper> &layer) -> FSError {
                 return layer->FSRenameWrapper(oP.c_str(), nP.c_str());
             },
             ASYNC_RESULT_HANDLER);
