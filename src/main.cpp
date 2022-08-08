@@ -1,3 +1,5 @@
+#include "FSADirReplacements.h"
+#include "FSAFileReplacements.h"
 #include "FSDirReplacements.h"
 #include "FSFileReplacements.h"
 #include "FileUtils.h"
@@ -15,8 +17,18 @@ WUMS_INITIALIZE() {
             OSFatal("homebrew_content_redirection: Failed to patch function");
         }
     }
+    for (uint32_t i = 0; i < fsa_file_function_replacements_size; i++) {
+        if (!FunctionPatcherPatchFunction(&fsa_file_function_replacements[i], nullptr)) {
+            OSFatal("homebrew_content_redirection: Failed to patch function");
+        }
+    }
     for (uint32_t i = 0; i < fs_dir_function_replacements_size; i++) {
         if (!FunctionPatcherPatchFunction(&fs_dir_function_replacements[i], nullptr)) {
+            OSFatal("homebrew_content_redirection: Failed to patch function");
+        }
+    }
+    for (uint32_t i = 0; i < fsa_dir_function_replacements_size; i++) {
+        if (!FunctionPatcherPatchFunction(&fsa_dir_function_replacements[i], nullptr)) {
             OSFatal("homebrew_content_redirection: Failed to patch function");
         }
     }

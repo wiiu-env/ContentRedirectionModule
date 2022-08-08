@@ -2,6 +2,7 @@
 
 #include "IFSWrapper.h"
 #include <coreinit/filesystem.h>
+#include <coreinit/filesystem_fsa.h>
 #include <functional>
 #include <mutex>
 #include <romfs_dev.h>
@@ -18,6 +19,11 @@ extern std::vector<std::unique_ptr<IFSWrapper>> fsLayers;
 #define ASYNC_RESULT_HANDLER [c = client, b = block, a = asyncData, filename = __FILENAME__, func = __FUNCTION__, line = __LINE__]([[maybe_unused]] std::unique_ptr<IFSWrapper> &layer, FSStatus res) -> FSStatus { \
     DEBUG_FUNCTION_LINE_VERBOSE_EX(filename, func, line, "Async result was %d", res);                                                                                                                               \
     return send_result_async(c, b, a, res);                                                                                                                                                                         \
+}
+
+#define SYNC_RESULT_HANDLER_FSA [filename = __FILENAME__, func = __FUNCTION__, line = __LINE__]([[maybe_unused]] std::unique_ptr<IFSWrapper> &layer, FSError res) -> FSError { \
+    DEBUG_FUNCTION_LINE_VERBOSE_EX(filename, func, line, "Sync result was %d", res);                                                                                           \
+    return res;                                                                                                                                                                \
 }
 
 #define FS_ERROR_FLAG_EXTRA_MASK (FSErrorFlag) 0xFFFF0000
@@ -41,6 +47,14 @@ void clearFSLayer();
 std::string getFullPathForFSClient(FSClient *pClient, const char *path);
 
 void setWorkingDirForFSClient(FSClient *client, const char *path);
+
+std::string getFullPathForFSAClient(FSAClientHandle client, const char *path);
+
+void setWorkingDirForFSAClient(FSAClientHandle client, const char *path);
+
+FSError doForLayerFSA(const std::function<FSError()> &real_function,
+                      const std::function<FSError(std::unique_ptr<IFSWrapper> &layer)> &layer_callback,
+                      const std::function<FSError(std::unique_ptr<IFSWrapper> &layer, FSError)> &result_handler);
 
 FSStatus doForLayer(FSClient *client,
                     FSErrorFlag errorMask,

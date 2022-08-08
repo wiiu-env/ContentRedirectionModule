@@ -10,22 +10,25 @@
 #include <unistd.h>
 
 std::mutex workingDirMutexFS;
-std::map<FSClient *, std::string> workingDirsFS;
+std::map<uint32_t, std::string> workingDirsFS;
+
+std::mutex workingDirMutexFSA;
+std::map<uint32_t, std::string> workingDirsFSA;
 
 std::mutex fsLayerMutex;
 std::vector<std::unique_ptr<IFSWrapper>> fsLayers;
 
-std::string getFullPathForFSClient(FSClient *pClient, const char *path) {
-    std::lock_guard<std::mutex> workingDirLock(workingDirMutexFS);
+std::string getFullPathGeneric(uint32_t client, const char *path, std::mutex &mutex, std::map<uint32_t, std::string> &map) {
+    std::lock_guard<std::mutex> workingDirLock(mutex);
 
     std::string res;
 
     if (path[0] != '/' && path[0] != '\\') {
-        if (workingDirsFS.count(pClient) == 0) {
-            DEBUG_FUNCTION_LINE_WARN("No working dir found for FS client %08X, fallback to \"/\"", pClient);
-            workingDirsFS[pClient] = "/";
+        if (map.count(client) == 0) {
+            DEBUG_FUNCTION_LINE_WARN("No working dir found for client %08X, fallback to \"/\"", client);
+            workingDirsFS[client] = "/";
         }
-        res = string_format("%s%s", workingDirsFS.at(pClient).c_str(), path);
+        res = string_format("%s%s", map.at(client).c_str(), path);
     } else {
         res = path;
     }
@@ -35,20 +38,37 @@ std::string getFullPathForFSClient(FSClient *pClient, const char *path) {
     return res;
 }
 
-void setWorkingDirForFSClient(FSClient *client, const char *path) {
+void setWorkingDirGeneric(uint32_t client, const char *path, std::mutex &mutex, std::map<uint32_t, std::string> &map) {
     if (!path) {
         DEBUG_FUNCTION_LINE_WARN("Path was NULL");
         return;
     }
-    std::lock_guard<std::mutex> workingDirLock(workingDirMutexFS);
+
+    std::lock_guard<std::mutex> workingDirLock(mutex);
 
     std::string cwd(path);
     if (cwd.empty() || cwd.back() != '/') {
         cwd.push_back('/');
     }
-
-    workingDirsFS[client] = cwd;
+    map[client] = cwd;
     OSMemoryBarrier();
+}
+
+
+std::string getFullPathForFSClient(FSClient *pClient, const char *path) {
+    return getFullPathGeneric((uint32_t) pClient, path, workingDirMutexFS, workingDirsFS);
+}
+
+void setWorkingDirForFSClient(FSClient *client, const char *path) {
+    setWorkingDirGeneric((uint32_t) client, path, workingDirMutexFS, workingDirsFS);
+}
+
+std::string getFullPathForFSAClient(FSAClientHandle client, const char *path) {
+    return getFullPathGeneric((uint32_t) client, path, workingDirMutexFSA, workingDirsFSA);
+}
+
+void setWorkingDirForFSAClient(FSAClientHandle client, const char *path) {
+    setWorkingDirGeneric(client, path, workingDirMutexFSA, workingDirsFSA);
 }
 
 void clearFSLayer() {
@@ -57,9 +77,51 @@ void clearFSLayer() {
         workingDirsFS.clear();
     }
     {
+        std::lock_guard<std::mutex> workingDirLock(workingDirMutexFSA);
+        workingDirsFSA.clear();
+    }
+    {
         std::lock_guard<std::mutex> layerLock(fsLayerMutex);
         fsLayers.clear();
     }
+}
+
+
+FSError doForLayerFSA(const std::function<FSError()> &real_function,
+                      const std::function<FSError(std::unique_ptr<IFSWrapper> &layer)> &layer_callback,
+                      const std::function<FSError(std::unique_ptr<IFSWrapper> &layer, FSError)> &result_handler) {
+
+
+    std::lock_guard<std::mutex> lock(fsLayerMutex);
+    if (!fsLayers.empty()) {
+        uint32_t startIndex = fsLayers.size();
+
+        if (startIndex > 0) {
+            for (uint32_t i = startIndex; i > 0; i--) {
+                auto &layer = fsLayers[i - 1];
+                if (!layer->isActive()) {
+                    continue;
+                }
+                FSError layerResult = layer_callback(layer);
+                if (layerResult != FS_ERROR_FORCE_PARENT_LAYER) {
+                    auto result = layerResult >= 0 ? layerResult : (FSError) ((layerResult & FS_ERROR_REAL_MASK) | FS_ERROR_EXTRA_MASK);
+
+                    if (result < FS_ERROR_OK && result != FS_ERROR_END_OF_DIR && result != FS_ERROR_END_OF_FILE && result != FS_ERROR_CANCELLED) {
+                        if (layer->fallbackOnError()) {
+                            // Only fallback if FS_ERROR_FORCE_NO_FALLBACK flag is not set.
+                            if (static_cast<FSError>(layerResult & FS_ERROR_EXTRA_MASK) != FS_ERROR_FORCE_NO_FALLBACK) {
+                                continue;
+                            }
+                        }
+                    }
+
+                    return result_handler(layer, result);
+                }
+            }
+        }
+    }
+
+    return real_function();
 }
 
 // FUN_0204cc20
