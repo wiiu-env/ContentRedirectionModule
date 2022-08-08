@@ -31,3 +31,5 @@ bool remove_locked_first_if(std::mutex &mutex, std::vector<T, Allocator> &list, 
 // those work only in powers of 2
 #define ROUNDDOWN(val, align) ((val) & ~(align - 1))
 #define ROUNDUP(val, align)   ROUNDDOWN(((val) + (align - 1)), align)
+
+void translate_stat(struct stat *posStat, FSStat *fsStat);

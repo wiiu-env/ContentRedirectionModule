@@ -103,10 +103,11 @@ FSError FSWrapper::FSReadDirWrapper(FSDirectoryHandle handle, FSDirectoryEntry *
                     char path[strLen];
                     snprintf(path, sizeof(path), "%s/%s", dirHandle->path, entry_->d_name);
                     if (stat(path, &sb) >= 0) {
-                        entry->info.size  = sb.st_size;
-                        entry->info.flags = (FSStatFlags) 0;
-                        entry->info.owner = sb.st_uid;
-                        entry->info.group = sb.st_gid;
+                        translate_stat(&sb, &entry->info);
+                    } else {
+                        DEBUG_FUNCTION_LINE_ERR("[%s] Failed to stat file (%s) in read dir %08X (dir handle %08X)", getName().c_str(), path, dir, handle);
+                        result = FS_ERROR_MEDIA_ERROR;
+                        break;
                     }
                 }
             }
@@ -322,17 +323,7 @@ FSError FSWrapper::FSGetStatWrapper(const char *path, FSStat *stats) {
         DEBUG_FUNCTION_LINE_VERBOSE("[%s] Path %s (%s) not found ", getName().c_str(), path, newPath.c_str());
         result = FS_ERROR_NOT_FOUND;
     } else {
-        memset(&(stats->flags), 0, sizeof(stats->flags));
-        if (S_ISDIR(path_stat.st_mode)) {
-            stats->flags = (FSStatFlags) ((uint32_t) FS_STAT_DIRECTORY);
-        } else {
-            stats->size  = path_stat.st_size;
-            stats->mode  = (FSMode) FS_MODE_READ_OWNER;
-            stats->flags = (FSStatFlags) 0;
-            stats->owner = path_stat.st_uid;
-            stats->group = path_stat.st_gid;
-        }
-        DEBUG_FUNCTION_LINE_VERBOSE("[%s] Stats file for %s (%s), size %08X", getName().c_str(), path, newPath.c_str(), stats->size);
+        translate_stat(&path_stat, stats);
     }
     return result;
 }
@@ -353,13 +344,7 @@ FSError FSWrapper::FSGetStatFileWrapper(FSFileHandle handle, FSStat *stats) {
         DEBUG_FUNCTION_LINE_ERR("[%s] fstat of fd %d (FSFileHandle %08X) failed", getName().c_str(), real_fd, handle);
         result = FS_ERROR_MEDIA_ERROR;
     } else {
-        memset(&(stats->flags), 0, sizeof(stats->flags));
-
-        stats->size  = path_stat.st_size;
-        stats->mode  = (FSMode) FS_MODE_READ_OWNER;
-        stats->flags = (FSStatFlags) 0;
-        stats->owner = path_stat.st_uid;
-        stats->group = path_stat.st_gid;
+        translate_stat(&path_stat, stats);
     }
 
     return result;
