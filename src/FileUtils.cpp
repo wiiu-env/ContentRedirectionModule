@@ -36,9 +36,18 @@ std::string getFullPathForFSClient(FSClient *pClient, const char *path) {
 }
 
 void setWorkingDirForFSClient(FSClient *client, const char *path) {
+    if (!path) {
+        DEBUG_FUNCTION_LINE_WARN("Path was NULL");
+        return;
+    }
     std::lock_guard<std::mutex> workingDirLock(workingDirMutexFS);
 
-    workingDirsFS[client] = path;
+    std::string cwd(path);
+    if (cwd.empty() || cwd.back() != '/') {
+        cwd.push_back('/');
+    }
+
+    workingDirsFS[client] = cwd;
     OSMemoryBarrier();
 }
 
