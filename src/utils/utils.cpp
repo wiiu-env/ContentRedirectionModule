@@ -1,5 +1,8 @@
 #include "utils/logger.h"
+#include <coreinit/filesystem.h>
+#include <cstdio>
 #include <string.h>
+#include <sys/stat.h>
 #include <whb/log.h>
 
 #define PRINTF_BUFFER_LENGTH 2048
@@ -36,4 +39,39 @@ void dumpHex(const void *data, size_t size) {
             }
         }
     }
+}
+
+FSMode translate_permission_mode(mode_t mode) {
+    // Convert normal Unix octal permission bits into CafeOS hexadecimal permission bits
+    return (FSMode) (((mode & S_IRWXU) << 2) | ((mode & S_IRWXG) << 1) | (mode & S_IRWXO));
+}
+
+FSTime translate_time(time_t timeValue) {
+    // FSTime stats at 1980-01-01, time_t starts at 1970-01-01
+    auto EPOCH_DIFF_SECS_WII_U_FS_TIME = 315532800; //EPOCH_DIFF_SECS(WIIU_FSTIME_EPOCH_YEAR)
+    auto adjustedTimeValue             = timeValue - EPOCH_DIFF_SECS_WII_U_FS_TIME;
+    // FSTime is in microseconds, time_t is in seconds
+    return adjustedTimeValue * 1000000;
+}
+
+void translate_stat(struct stat *posStat, FSStat *fsStat) {
+    memset(fsStat, 0, sizeof(FSStat));
+    fsStat->size = posStat->st_size;
+
+    fsStat->mode = translate_permission_mode(posStat->st_mode);
+
+    fsStat->flags = static_cast<FSStatFlags>(0x1C000000); // These bits are always set
+    if (S_ISDIR(posStat->st_mode)) {
+        fsStat->flags = static_cast<FSStatFlags>(fsStat->flags | FS_STAT_DIRECTORY);
+    } else if (S_ISREG(posStat->st_mode)) {
+        fsStat->flags     = static_cast<FSStatFlags>(fsStat->flags | FS_STAT_FILE);
+        fsStat->allocSize = posStat->st_size;
+        fsStat->quotaSize = posStat->st_size;
+    }
+    fsStat->modified = translate_time(posStat->st_atime);
+    fsStat->created  = translate_time(posStat->st_ctime);
+    fsStat->entryId  = posStat->st_ino;
+
+    fsStat->owner = posStat->st_uid;
+    fsStat->group = posStat->st_gid;
 }
