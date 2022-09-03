@@ -5,7 +5,6 @@
 #include "utils/logger.h"
 #include "utils/utils.h"
 #include <content_redirection/redirection.h>
-#include <coreinit/debug.h>
 #include <mutex>
 #include <wums/exports.h>
 
@@ -57,8 +56,13 @@ ContentRedirectionApiErrorType CRSetActive(CRLayerHandle handle, bool active) {
     return CONTENT_REDIRECTION_API_ERROR_LAYER_NOT_FOUND;
 }
 
-uint32_t CRGetVersion() {
-    return CONTENT_REDIRECT_MODULE_VERSION;
+ContentRedirectionApiErrorType CRGetVersion(ContentRedirectionVersion *outVersion) {
+    if (outVersion == nullptr) {
+        DEBUG_FUNCTION_LINE_ERR("CONTENT_REDIRECTION_API_ERROR_INVALID_ARG");
+        return CONTENT_REDIRECTION_API_ERROR_INVALID_ARG;
+    }
+    *outVersion = 1;
+    return CONTENT_REDIRECTION_API_ERROR_NONE;
 }
 
 int CRAddDevice(const devoptab_t *device) {
