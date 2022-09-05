@@ -190,6 +190,7 @@ FSError FSWrapper::FSMakeDirWrapper(const char *path) {
         } else if (err == ENOENT) {
             return FS_ERROR_NOT_FOUND;
         }
+        return FS_ERROR_MEDIA_ERROR;
     }
     return FS_ERROR_OK;
 }
