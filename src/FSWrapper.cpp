@@ -281,8 +281,9 @@ FSError FSWrapper::FSOpenFileWrapper(const char *path, const char *mode, FSFileH
                 result = FS_ERROR_NOT_DIR;
             } else if (err == ENFILE || err == EMFILE) {
                 result = FS_ERROR_MAX_FILES;
+            } else {
+                result = FS_ERROR_MEDIA_ERROR;
             }
-            err = FS_ERROR_MEDIA_ERROR;
         }
     }
 
