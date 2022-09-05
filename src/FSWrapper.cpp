@@ -176,8 +176,22 @@ FSError FSWrapper::FSMakeDirWrapper(const char *path) {
         DEBUG_FUNCTION_LINE_VERBOSE("[%s] Tried to create dir %s but layer is not writeable", getName().c_str(), path);
         return FS_ERROR_PERMISSION_ERROR;
     }
-    DEBUG_FUNCTION_LINE_ERR("NOT IMPLEMENTED MAKE DIR");
-    return FS_ERROR_UNSUPPORTED_COMMAND;
+    auto newPath = GetNewPath(path);
+
+    auto res = mkdir(newPath.c_str(), 0000660);
+    if (res < 0) {
+        auto err = errno;
+        if (err == EACCES) {
+            return FS_ERROR_PERMISSION_ERROR;
+        } else if (err == EEXIST) {
+            return FS_ERROR_ALREADY_EXISTS;
+        } else if (err == ENOTDIR) {
+            return FS_ERROR_NOT_DIR;
+        } else if (err == ENOENT) {
+            return FS_ERROR_NOT_FOUND;
+        }
+    }
+    return FS_ERROR_OK;
 }
 
 FSError FSWrapper::FSOpenFileWrapper(const char *path, const char *mode, FSFileHandle *handle) {
