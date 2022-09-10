@@ -27,10 +27,12 @@ public:
 
     bool SkipDeletedFilesInReadDir() override;
 
+    uint32_t getLayerId() override {
+        return (uint32_t) clientHandle;
+    }
+
 private:
-    void freeFSClient();
-    FSClient *pFSClient;
-    FSCmdBlock *pCmdBlock;
+    FSAClientHandle clientHandle;
 
     std::shared_ptr<DirInfoEx> getDirExFromHandle(FSDirectoryHandle handle);
 };

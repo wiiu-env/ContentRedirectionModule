@@ -1,9 +1,9 @@
 #pragma once
 #include "DirInfo.h"
-#include <coreinit/filesystem.h>
+#include <coreinit/filesystem_fsa.h>
 
 typedef struct FSDirectoryEntryEx {
-    FSDirectoryEntry realEntry{};
+    FSADirectoryEntry realEntry{};
     bool isMarkedAsDeleted = false;
 } FSDirectoryEntryEx;
 

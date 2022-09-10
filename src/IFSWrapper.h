@@ -1,12 +1,13 @@
 #pragma once
-#include <coreinit/filesystem.h>
+#include <coreinit/filesystem_fsa.h>
 #include <functional>
 #include <string>
 
-#define FS_ERROR_EXTRA_MASK         0xFFF00000
-#define FS_ERROR_REAL_MASK          0x000FFFFF
-#define FS_ERROR_FORCE_PARENT_LAYER (FSError) 0xFFE0000
-#define FS_ERROR_FORCE_NO_FALLBACK  (FSError) 0xFFD0000
+#define FS_ERROR_EXTRA_MASK          0xFFF00000
+#define FS_ERROR_REAL_MASK           0x000FFFFF
+#define FS_ERROR_FORCE_PARENT_LAYER  (FSError) 0xFFE00000
+#define FS_ERROR_FORCE_NO_FALLBACK   (FSError) 0xFFD00000
+#define FS_ERROR_FORCE_REAL_FUNCTION (FSError) 0xFFC00000
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
@@ -15,21 +16,21 @@ class IFSWrapper {
 public:
     virtual ~IFSWrapper() = default;
     virtual FSError FSOpenDirWrapper(const char *path,
-                                     FSDirectoryHandle *handle) {
+                                     FSADirectoryHandle *handle) {
         return FS_ERROR_FORCE_PARENT_LAYER;
     }
 
-    virtual FSError FSReadDirWrapper(FSDirectoryHandle handle,
-                                     FSDirectoryEntry *entry) {
+    virtual FSError FSReadDirWrapper(FSADirectoryHandle handle,
+                                     FSADirectoryEntry *entry) {
         return FS_ERROR_FORCE_PARENT_LAYER;
     }
 
-    virtual FSError FSCloseDirWrapper(FSDirectoryHandle handle) {
+    virtual FSError FSCloseDirWrapper(FSADirectoryHandle handle) {
         return FS_ERROR_FORCE_PARENT_LAYER;
     }
 
 
-    virtual FSError FSRewindDirWrapper(FSDirectoryHandle handle) {
+    virtual FSError FSRewindDirWrapper(FSADirectoryHandle handle) {
         return FS_ERROR_FORCE_PARENT_LAYER;
     }
 
@@ -39,29 +40,29 @@ public:
 
     virtual FSError FSOpenFileWrapper(const char *path,
                                       const char *mode,
-                                      FSFileHandle *handle) {
+                                      FSAFileHandle *handle) {
         return FS_ERROR_FORCE_PARENT_LAYER;
     }
 
-    virtual FSError FSCloseFileWrapper(FSFileHandle handle) {
+    virtual FSError FSCloseFileWrapper(FSAFileHandle handle) {
         return FS_ERROR_FORCE_PARENT_LAYER;
     }
 
     virtual FSError FSGetStatWrapper(const char *path,
-                                     FSStat *stats) {
+                                     FSAStat *stats) {
         return FS_ERROR_FORCE_PARENT_LAYER;
     }
 
 
-    virtual FSError FSGetStatFileWrapper(FSFileHandle handle,
-                                         FSStat *stats) {
+    virtual FSError FSGetStatFileWrapper(FSAFileHandle handle,
+                                         FSAStat *stats) {
         return FS_ERROR_FORCE_PARENT_LAYER;
     }
 
     virtual FSError FSReadFileWrapper(void *buffer,
                                       uint32_t size,
                                       uint32_t count,
-                                      FSFileHandle handle,
+                                      FSAFileHandle handle,
                                       uint32_t unk1) {
         return FS_ERROR_FORCE_PARENT_LAYER;
     }
@@ -70,34 +71,43 @@ public:
                                              uint32_t size,
                                              uint32_t count,
                                              uint32_t pos,
-                                             FSFileHandle handle,
+                                             FSAFileHandle handle,
                                              int32_t unk1) {
         return FS_ERROR_FORCE_PARENT_LAYER;
     }
 
-    virtual FSError FSSetPosFileWrapper(FSFileHandle handle,
+    virtual FSError FSSetPosFileWrapper(FSAFileHandle handle,
                                         uint32_t pos) {
         return FS_ERROR_FORCE_PARENT_LAYER;
     }
 
-    virtual FSError FSGetPosFileWrapper(FSFileHandle handle,
+    virtual FSError FSGetPosFileWrapper(FSAFileHandle handle,
                                         uint32_t *pos) {
         return FS_ERROR_FORCE_PARENT_LAYER;
     }
 
-    virtual FSError FSIsEofWrapper(FSFileHandle handle) {
+    virtual FSError FSIsEofWrapper(FSAFileHandle handle) {
         return FS_ERROR_FORCE_PARENT_LAYER;
     }
 
-    virtual FSError FSTruncateFileWrapper(FSFileHandle handle) {
+    virtual FSError FSTruncateFileWrapper(FSAFileHandle handle) {
         return FS_ERROR_FORCE_PARENT_LAYER;
     }
 
-    virtual FSError FSWriteFileWrapper(uint8_t *buffer,
+    virtual FSError FSWriteFileWrapper(const uint8_t *buffer,
                                        uint32_t size,
                                        uint32_t count,
-                                       FSFileHandle handle,
+                                       FSAFileHandle handle,
                                        uint32_t unk1) {
+        return FS_ERROR_FORCE_PARENT_LAYER;
+    }
+
+    virtual FSError FSWriteFileWithPosWrapper(const uint8_t *buffer,
+                                              uint32_t size,
+                                              uint32_t count,
+                                              FSAFilePosition pos,
+                                              FSAFileHandle handle,
+                                              uint32_t unk1) {
         return FS_ERROR_FORCE_PARENT_LAYER;
     }
 
@@ -110,7 +120,7 @@ public:
         return FS_ERROR_FORCE_PARENT_LAYER;
     }
 
-    virtual FSError FSFlushFileWrapper(FSFileHandle handle) {
+    virtual FSError FSFlushFileWrapper(FSAFileHandle handle) {
         return FS_ERROR_FORCE_PARENT_LAYER;
     }
 
@@ -130,15 +140,17 @@ public:
         return pName;
     }
 
-    virtual bool isValidDirHandle(FSDirectoryHandle handle) = 0;
+    virtual bool isValidDirHandle(FSADirectoryHandle handle) = 0;
 
-    virtual bool isValidFileHandle(FSFileHandle handle) = 0;
+    virtual bool isValidFileHandle(FSAFileHandle handle) = 0;
 
-    virtual void deleteDirHandle(FSDirectoryHandle handle) = 0;
+    virtual void deleteDirHandle(FSADirectoryHandle handle) = 0;
 
-    virtual void deleteFileHandle(FSFileHandle handle) = 0;
+    virtual void deleteFileHandle(FSAFileHandle handle) = 0;
 
-    uint32_t getHandle() {
+    virtual uint32_t getLayerId() = 0;
+
+    virtual uint32_t getHandle() {
         return (uint32_t) this;
     }
 

@@ -10,7 +10,7 @@
 
 ContentRedirectionApiErrorType CRAddFSLayer(CRLayerHandle *handle, const char *layerName, const char *replacementDir, FSLayerType layerType) {
     if (!handle || layerName == nullptr || replacementDir == nullptr) {
-        DEBUG_FUNCTION_LINE_ERR("CONTENT_REDIRECTION_API_ERROR_INVALID_ARG");
+        DEBUG_FUNCTION_LINE_WARN("CONTENT_REDIRECTION_API_ERROR_INVALID_ARG");
         return CONTENT_REDIRECTION_API_ERROR_INVALID_ARG;
     }
     std::unique_ptr<IFSWrapper> ptr;
@@ -37,7 +37,7 @@ ContentRedirectionApiErrorType CRAddFSLayer(CRLayerHandle *handle, const char *l
 
 ContentRedirectionApiErrorType CRRemoveFSLayer(CRLayerHandle handle) {
     if (remove_locked_first_if(fsLayerMutex, fsLayers, [handle](auto &cur) { return (CRLayerHandle) cur->getHandle() == handle; })) {
-        DEBUG_FUNCTION_LINE_ERR("CONTENT_REDIRECTION_API_ERROR_LAYER_NOT_FOUND for handle %08X", handle);
+        DEBUG_FUNCTION_LINE_WARN("CONTENT_REDIRECTION_API_ERROR_LAYER_NOT_FOUND for handle %08X", handle);
         return CONTENT_REDIRECTION_API_ERROR_LAYER_NOT_FOUND;
     }
     return CONTENT_REDIRECTION_API_ERROR_NONE;
@@ -52,13 +52,12 @@ ContentRedirectionApiErrorType CRSetActive(CRLayerHandle handle, bool active) {
         }
     }
 
-    DEBUG_FUNCTION_LINE_ERR("CONTENT_REDIRECTION_API_ERROR_LAYER_NOT_FOUND for handle %08X", handle);
+    DEBUG_FUNCTION_LINE_WARN("CONTENT_REDIRECTION_API_ERROR_LAYER_NOT_FOUND for handle %08X", handle);
     return CONTENT_REDIRECTION_API_ERROR_LAYER_NOT_FOUND;
 }
 
 ContentRedirectionApiErrorType CRGetVersion(ContentRedirectionVersion *outVersion) {
     if (outVersion == nullptr) {
-        DEBUG_FUNCTION_LINE_ERR("CONTENT_REDIRECTION_API_ERROR_INVALID_ARG");
         return CONTENT_REDIRECTION_API_ERROR_INVALID_ARG;
     }
     *outVersion = 1;

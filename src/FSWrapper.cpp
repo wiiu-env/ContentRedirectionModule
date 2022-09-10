@@ -314,14 +314,14 @@ bool FSWrapper::CheckFileShouldBeIgnored(std::string &path) {
     auto asPath = std::filesystem::path(path);
 
     if (std::string(asPath.filename().c_str()).starts_with(deletePrefix)) {
-        DEBUG_FUNCTION_LINE_VERBOSE("Ignore %s, filename starts with %s", path.c_str(), deletePrefix.c_str());
+        DEBUG_FUNCTION_LINE_VERBOSE("[%s] Ignore %s, filename starts with %s", getName().c_str(), path.c_str(), deletePrefix.c_str());
         return true;
     }
 
     auto newDelPath = asPath.replace_filename(deletePrefix + asPath.filename().c_str());
     struct stat buf {};
     if (stat(newDelPath.c_str(), &buf) == 0) {
-        DEBUG_FUNCTION_LINE_VERBOSE("Ignore %s, file %s exists", path.c_str(), newDelPath.c_str());
+        DEBUG_FUNCTION_LINE_VERBOSE("[%s] Ignore %s, file %s exists", getName().c_str(), path.c_str(), newDelPath.c_str());
         return true;
     }
     return false;
@@ -400,7 +400,7 @@ FSError FSWrapper::FSReadFileWrapper(void *buffer, uint32_t size, uint32_t count
 
     FSError result;
     if (read < 0) {
-        DEBUG_FUNCTION_LINE_ERR("[%s] read %u bytes of fd %d (FSFileHandle %08X) failed", getName().c_str(), size * count, real_fd, handle);
+        DEBUG_FUNCTION_LINE_ERR("[%s] Read %u bytes of fd %d (FSFileHandle %08X) failed", getName().c_str(), size * count, real_fd, handle);
         auto err = errno;
         if (err == EBADF || err == EROFS) {
             return FS_ERROR_ACCESS_ERROR;
@@ -438,10 +438,10 @@ FSError FSWrapper::FSSetPosFileWrapper(FSFileHandle handle, uint32_t pos) {
 
     int real_fd = fileHandle->fd;
 
-    DEBUG_FUNCTION_LINE_VERBOSE("[%s] lseek fd %d (FSFileHandle %08X) to get current position for truncation", getName().c_str(), real_fd, handle);
+    DEBUG_FUNCTION_LINE_VERBOSE("[%s] lseek fd %d (FSFileHandle %08X) SEEK_SET to position %08X", getName().c_str(), real_fd, handle, pos);
     off_t newPos;
     if ((newPos = lseek(real_fd, (off_t) pos, SEEK_SET)) != pos) {
-        DEBUG_FUNCTION_LINE_ERR("[%s] lseek fd %d (FSFileHandle %08X) to position %u failed", getName().c_str(), real_fd, handle);
+        DEBUG_FUNCTION_LINE_ERR("[%s] lseek fd %d (FSFileHandle %08X) to position %08X failed", getName().c_str(), real_fd, handle, pos);
         if (newPos < 0) {
             // TODO: read errno
         }
@@ -538,7 +538,7 @@ FSError FSWrapper::FSTruncateFileWrapper(FSFileHandle handle) {
     return result;
 }
 
-FSError FSWrapper::FSWriteFileWrapper(uint8_t *buffer, uint32_t size, uint32_t count, FSFileHandle handle, [[maybe_unused]] uint32_t unk1) {
+FSError FSWrapper::FSWriteFileWrapper(const uint8_t *buffer, uint32_t size, uint32_t count, FSFileHandle handle, [[maybe_unused]] uint32_t unk1) {
     if (!isValidFileHandle(handle)) {
         return FS_ERROR_FORCE_PARENT_LAYER;
     }
@@ -583,7 +583,7 @@ FSError FSWrapper::FSRemoveWrapper(const char *path) {
     DEBUG_FUNCTION_LINE_VERBOSE("[%s] Remove %s (%s)", getName().c_str(), path, newPath.c_str());
     if (remove(newPath.c_str()) < 0) {
         auto err = errno;
-        DEBUG_FUNCTION_LINE_ERR("[%s] rename failed %s (%s) errno %d", getName().c_str(), path, newPath.c_str(), err);
+        DEBUG_FUNCTION_LINE_ERR("[%s] Rename failed %s (%s) errno %d", getName().c_str(), path, newPath.c_str(), err);
         if (err == ENOTDIR) {
             return FS_ERROR_NOT_DIR;
         } else if (err == EACCES) {
@@ -719,7 +719,7 @@ std::shared_ptr<FileInfo> FSWrapper::getFileFromHandle(FSFileHandle handle) {
         }
     }
     DEBUG_FUNCTION_LINE_ERR("[%s] FileInfo for handle %08X was not found. isValidFileHandle check missing?", getName().c_str(), handle);
-    OSFatal("Failed to find file handle");
+    OSFatal("ContentRedirectionModule: Failed to find file handle");
     return nullptr;
 }
 
@@ -731,7 +731,7 @@ std::shared_ptr<DirInfo> FSWrapper::getDirFromHandle(FSDirectoryHandle handle) {
         }
     }
     DEBUG_FUNCTION_LINE_ERR("[%s] DirInfo for handle %08X was not found. isValidDirHandle check missing?", getName().c_str(), handle);
-    OSFatal("Failed to find dir handle");
+    OSFatal("ContentRedirectionModule: Failed to find dir handle");
     return nullptr;
 }
 

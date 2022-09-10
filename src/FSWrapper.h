@@ -82,7 +82,7 @@ public:
 
     FSError FSTruncateFileWrapper(FSFileHandle handle) override;
 
-    FSError FSWriteFileWrapper(uint8_t *buffer,
+    FSError FSWriteFileWrapper(const uint8_t *buffer,
                                uint32_t size,
                                uint32_t count,
                                FSFileHandle handle,
@@ -94,6 +94,10 @@ public:
                             const char *newPath) override;
 
     FSError FSFlushFileWrapper(FSFileHandle handle) override;
+
+    uint32_t getLayerId() override {
+        return (uint32_t) this;
+    }
 
 protected:
     virtual bool IsFileModeAllowed(const char *mode);
