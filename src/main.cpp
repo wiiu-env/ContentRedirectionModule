@@ -12,7 +12,7 @@
 WUMS_MODULE_EXPORT_NAME("homebrew_content_redirection");
 WUMS_USE_WUT_DEVOPTAB();
 
-#define VERSION "v0.2"
+#define VERSION "v0.2.1"
 
 WUMS_INITIALIZE() {
     initLogging();
