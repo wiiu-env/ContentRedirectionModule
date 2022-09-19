@@ -3,6 +3,7 @@
 #include "FileUtils.h"
 #include "utils/StringTools.h"
 #include "utils/logger.h"
+#include "version.h"
 #include <coreinit/cache.h>
 #include <coreinit/core.h>
 #include <malloc.h>
@@ -10,6 +11,8 @@
 
 WUMS_MODULE_EXPORT_NAME("homebrew_content_redirection");
 WUMS_USE_WUT_DEVOPTAB();
+
+#define VERSION "v0.2"
 
 WUMS_INITIALIZE() {
     initLogging();
@@ -29,8 +32,8 @@ WUMS_INITIALIZE() {
     deinitLogging();
 }
 
-
 WUMS_APPLICATION_STARTS() {
+    OSReport("Running ContentRedirectionModule " VERSION VERSION_EXTRA "\n");
     initLogging();
     startFSIOThreads();
 }
