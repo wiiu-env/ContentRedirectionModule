@@ -28,12 +28,12 @@ FSError FSWrapperMergeDirsWithParent::FSOpenDirWrapper(const char *path,
 
             if (clientHandle) {
                 FSADirectoryHandle realHandle = 0;
-                DEBUG_FUNCTION_LINE_ERR("[%s] Call FSAOpenDir with %s for parent layer", getName().c_str(), path);
-                // Call FSOpen with "this" as errorFlag call FSOpen for "parent" layers only.
-                if (FSAOpenDir(clientHandle, path, &realHandle) == FS_ERROR_OK) {
+                DEBUG_FUNCTION_LINE_VERBOSE("[%s] Call FSAOpenDir with %s for parent layer", getName().c_str(), path);
+                FSError err;
+                if ((err = FSAOpenDir(clientHandle, path, &realHandle)) == FS_ERROR_OK) {
                     dirHandle->realDirHandle = realHandle;
                 } else {
-                    DEBUG_FUNCTION_LINE_VERBOSE("[%s] Failed to open real dir %s", getName().c_str(), path);
+                    DEBUG_FUNCTION_LINE_ERR("[%s] Failed to open real dir %s. %s (%d)", getName().c_str(), path, FSAGetStatusStr(err), err);
                 }
             } else {
                 DEBUG_FUNCTION_LINE_ERR("[%s] clientHandle was null", getName().c_str());
@@ -99,7 +99,7 @@ FSError FSWrapperMergeDirsWithParent::FSReadDirWrapper(FSADirectoryHandle handle
                         FSADirectoryEntry realDirEntry;
                         FSError readDirResult;
                         while (true) {
-                            DEBUG_FUNCTION_LINE_ERR("[%s] Call FSReadDir with %08X for parent layer", getName().c_str(), dirHandle->realDirHandle);
+                            DEBUG_FUNCTION_LINE_VERBOSE("[%s] Call FSReadDir with %08X for parent layer", getName().c_str(), dirHandle->realDirHandle);
                             readDirResult = FSAReadDir(clientHandle, dirHandle->realDirHandle, &realDirEntry);
                             if (readDirResult == FS_ERROR_OK) {
                                 bool found       = false;
@@ -128,7 +128,7 @@ FSError FSWrapperMergeDirsWithParent::FSReadDirWrapper(FSADirectoryHandle handle
                                 res = FS_ERROR_END_OF_DIR;
                                 break;
                             } else {
-                                DEBUG_FUNCTION_LINE_ERR("[%s] real_FSReadDir returned an unexpected error: %08X", getName().c_str(), readDirResult);
+                                DEBUG_FUNCTION_LINE_ERR("[%s] real_FSReadDir returned an unexpected error: %s (%d)", getName().c_str(), FSAGetStatusStr(readDirResult), readDirResult);
                                 res = FS_ERROR_END_OF_DIR;
                                 break;
                             }
@@ -156,17 +156,19 @@ FSError FSWrapperMergeDirsWithParent::FSCloseDirWrapper(FSADirectoryHandle handl
         auto dirHandle = getDirExFromHandle(handle);
         if (dirHandle->realDirHandle != 0) {
             if (clientHandle) {
-                DEBUG_FUNCTION_LINE_ERR("[%s] Call FSCloseDir with %08X for parent layer", getName().c_str(), dirHandle->realDirHandle);
+                DEBUG_FUNCTION_LINE_VERBOSE("[%s] Call FSCloseDir with %08X for parent layer", getName().c_str(), dirHandle->realDirHandle);
                 auto realResult = FSACloseDir(clientHandle, dirHandle->realDirHandle);
                 if (realResult == FS_ERROR_OK) {
                     dirHandle->realDirHandle = 0;
                 } else {
-                    DEBUG_FUNCTION_LINE_ERR("[%s] Failed to close realDirHandle %d: res %d", getName().c_str(), dirHandle->realDirHandle, -1);
+                    DEBUG_FUNCTION_LINE_ERR("[%s] Failed to close realDirHandle %d: res %s (%d)", getName().c_str(), dirHandle->realDirHandle, FSAGetStatusStr(realResult), realResult);
                     return realResult == FS_ERROR_CANCELLED ? FS_ERROR_CANCELLED : FS_ERROR_MEDIA_ERROR;
                 }
             } else {
                 DEBUG_FUNCTION_LINE_ERR("[%s] clientHandle was null", getName().c_str());
             }
+        } else {
+            DEBUG_FUNCTION_LINE_VERBOSE("[%s] dirHandle->realDirHandle was 0", getName().c_str());
         }
 
         if (dirHandle->readResult != nullptr) {
@@ -199,15 +201,18 @@ FSError FSWrapperMergeDirsWithParent::FSRewindDirWrapper(FSADirectoryHandle hand
 
         if (dirHandle->realDirHandle != 0) {
             if (clientHandle) {
-                DEBUG_FUNCTION_LINE_ERR("[%s] Call FSARewindDir with %08X for parent layer", getName().c_str(), dirHandle->realDirHandle);
-                if (FSARewindDir(clientHandle, dirHandle->realDirHandle) == FS_ERROR_OK) {
+                DEBUG_FUNCTION_LINE_VERBOSE("[%s] Call FSARewindDir with %08X for parent layer", getName().c_str(), dirHandle->realDirHandle);
+                FSError err;
+                if ((err = FSARewindDir(clientHandle, dirHandle->realDirHandle)) == FS_ERROR_OK) {
                     dirHandle->realDirHandle = 0;
                 } else {
-                    DEBUG_FUNCTION_LINE_ERR("[%s] Failed to rewind dir for realDirHandle %08X", getName().c_str(), dirHandle->realDirHandle);
+                    DEBUG_FUNCTION_LINE_ERR("[%s] Failed to rewind dir for realDirHandle %08X. %s (%d)", getName().c_str(), dirHandle->realDirHandle, FSAGetStatusStr(err), err);
                 }
             } else {
                 DEBUG_FUNCTION_LINE_ERR("[%s] clientHandle was null", getName().c_str());
             }
+        } else {
+            DEBUG_FUNCTION_LINE_VERBOSE("[%s] dirHandle->realDirHandle was 0", getName().c_str());
         }
         OSMemoryBarrier();
     }
