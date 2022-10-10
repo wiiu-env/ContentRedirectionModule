@@ -222,6 +222,7 @@ FSWrapperMergeDirsWithParent::FSWrapperMergeDirsWithParent(const std::string &na
                                                                                              replaceWithPath,
                                                                                              fallbackOnError,
                                                                                              false) {
+    FSAInit();
     this->clientHandle = FSAAddClient(nullptr);
     if (clientHandle < 0) {
         DEBUG_FUNCTION_LINE_ERR("[%s] FSAClientHandle failed: %s (%d)", name.c_str(), FSAGetStatusStr(static_cast<FSError>(clientHandle)), clientHandle);
