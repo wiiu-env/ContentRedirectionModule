@@ -9,7 +9,7 @@
 WUMS_MODULE_EXPORT_NAME("homebrew_content_redirection");
 WUMS_USE_WUT_DEVOPTAB();
 
-#define VERSION "v0.2.2"
+#define VERSION "v0.2.3"
 
 DECL_FUNCTION(void, OSCancelThread, OSThread *thread) {
     if (thread == gThreadData[0].thread || thread == gThreadData[1].thread || thread == gThreadData[2].thread) {
