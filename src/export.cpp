@@ -131,7 +131,7 @@ ContentRedirectionApiErrorType CRAddFSLayer(CRLayerHandle *handle, const char *l
 }
 
 ContentRedirectionApiErrorType CRRemoveFSLayer(CRLayerHandle handle) {
-    if (remove_locked_first_if(fsLayerMutex, fsLayers, [handle](auto &cur) { return (CRLayerHandle) cur->getHandle() == handle; })) {
+    if (!remove_locked_first_if(fsLayerMutex, fsLayers, [handle](auto &cur) { return (CRLayerHandle) cur->getHandle() == handle; })) {
         DEBUG_FUNCTION_LINE_WARN("CONTENT_REDIRECTION_API_ERROR_LAYER_NOT_FOUND for handle %08X", handle);
         return CONTENT_REDIRECTION_API_ERROR_LAYER_NOT_FOUND;
     }
