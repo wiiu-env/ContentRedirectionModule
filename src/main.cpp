@@ -25,17 +25,25 @@ function_replacement_data_t OSCancelThreadReplacement = REPLACE_FUNCTION(OSCance
 WUMS_INITIALIZE() {
     initLogging();
     DEBUG_FUNCTION_LINE("Patch functions");
+    if (FunctionPatcher_InitLibrary() != FUNCTION_PATCHER_RESULT_SUCCESS) {
+        OSFatal("homebrew_content_redirection: FunctionPatcher_InitLibrary failed");
+    }
+
+    bool wasPatched;
     for (uint32_t i = 0; i < fs_file_function_replacements_size; i++) {
-        if (!FunctionPatcherPatchFunction(&fs_file_function_replacements[i], nullptr)) {
+        wasPatched = false;
+        if (FunctionPatcher_AddFunctionPatch(&fs_file_function_replacements[i], nullptr, &wasPatched) != FUNCTION_PATCHER_RESULT_SUCCESS || !wasPatched) {
             OSFatal("homebrew_content_redirection: Failed to patch function");
         }
     }
     for (uint32_t i = 0; i < fsa_file_function_replacements_size; i++) {
-        if (!FunctionPatcherPatchFunction(&fsa_file_function_replacements[i], nullptr)) {
+        wasPatched = false;
+        if (FunctionPatcher_AddFunctionPatch(&fsa_file_function_replacements[i], nullptr, &wasPatched) != FUNCTION_PATCHER_RESULT_SUCCESS || !wasPatched) {
             OSFatal("homebrew_content_redirection: Failed to patch function");
         }
     }
-    if (!FunctionPatcherPatchFunction(&OSCancelThreadReplacement, nullptr)) {
+    wasPatched = false;
+    if (FunctionPatcher_AddFunctionPatch(&OSCancelThreadReplacement, nullptr, &wasPatched) != FUNCTION_PATCHER_RESULT_SUCCESS || !wasPatched) {
         OSFatal("homebrew_content_redirection: Failed to patch OSCancelThreadReplacement");
     }
     DEBUG_FUNCTION_LINE("Patch functions finished");
