@@ -1,8 +1,8 @@
-FROM wiiuenv/devkitppc:20221228
+FROM ghcr.io/wiiu-env/devkitppc:20221228
 
-COPY --from=wiiuenv/libfunctionpatcher:20230106 /artifacts $DEVKITPRO
-COPY --from=wiiuenv/wiiumodulesystem:20230106 /artifacts $DEVKITPRO
-COPY --from=wiiuenv/libromfs_wiiu:20220904 /artifacts $DEVKITPRO
-COPY --from=wiiuenv/libcontentredirection:20221010 /artifacts $DEVKITPRO
+COPY --from=ghcr.io/wiiu-env/libfunctionpatcher:20230106 /artifacts $DEVKITPRO
+COPY --from=ghcr.io/wiiu-env/wiiumodulesystem:20230106 /artifacts $DEVKITPRO
+COPY --from=ghcr.io/wiiu-env/libromfs_wiiu:20220904 /artifacts $DEVKITPRO
+COPY --from=ghcr.io/wiiu-env/libcontentredirection:20221010 /artifacts $DEVKITPRO
 
 WORKDIR project
