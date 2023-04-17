@@ -36,27 +36,27 @@ bool getAOCPath(std::string &outStr) {
         DEBUG_FUNCTION_LINE_WARN("OSDynLoad_Acquire failed");
         return false;
     }
-    if (OSDynLoad_FindExport(aoc_handle, false, "AOC_Initialize", reinterpret_cast<void **>(&AOC_Initialize)) != OS_DYNLOAD_OK) {
+    if (OSDynLoad_FindExport(aoc_handle, OS_DYNLOAD_EXPORT_FUNC, "AOC_Initialize", reinterpret_cast<void **>(&AOC_Initialize)) != OS_DYNLOAD_OK) {
         DEBUG_FUNCTION_LINE_WARN("OSDynLoad_FindExport failed");
         goto end;
     }
-    if (OSDynLoad_FindExport(aoc_handle, false, "AOC_Finalize", reinterpret_cast<void **>(&AOC_Finalize)) != OS_DYNLOAD_OK) {
+    if (OSDynLoad_FindExport(aoc_handle, OS_DYNLOAD_EXPORT_FUNC, "AOC_Finalize", reinterpret_cast<void **>(&AOC_Finalize)) != OS_DYNLOAD_OK) {
         DEBUG_FUNCTION_LINE_WARN("OSDynLoad_FindExport failed");
         goto end;
     }
-    if (OSDynLoad_FindExport(aoc_handle, false, "AOC_OpenTitle", reinterpret_cast<void **>(&AOC_OpenTitle)) != OS_DYNLOAD_OK) {
+    if (OSDynLoad_FindExport(aoc_handle, OS_DYNLOAD_EXPORT_FUNC, "AOC_OpenTitle", reinterpret_cast<void **>(&AOC_OpenTitle)) != OS_DYNLOAD_OK) {
         DEBUG_FUNCTION_LINE_WARN("OSDynLoad_FindExport failed");
         goto end;
     }
-    if (OSDynLoad_FindExport(aoc_handle, false, "AOC_ListTitle", reinterpret_cast<void **>(&AOC_ListTitle)) != OS_DYNLOAD_OK) {
+    if (OSDynLoad_FindExport(aoc_handle, OS_DYNLOAD_EXPORT_FUNC, "AOC_ListTitle", reinterpret_cast<void **>(&AOC_ListTitle)) != OS_DYNLOAD_OK) {
         DEBUG_FUNCTION_LINE_WARN("OSDynLoad_FindExport failed");
         goto end;
     }
-    if (OSDynLoad_FindExport(aoc_handle, false, "AOC_CalculateWorkBufferSize", reinterpret_cast<void **>(&AOC_CalculateWorkBufferSize)) != OS_DYNLOAD_OK) {
+    if (OSDynLoad_FindExport(aoc_handle, OS_DYNLOAD_EXPORT_FUNC, "AOC_CalculateWorkBufferSize", reinterpret_cast<void **>(&AOC_CalculateWorkBufferSize)) != OS_DYNLOAD_OK) {
         DEBUG_FUNCTION_LINE_WARN("OSDynLoad_FindExport failed");
         goto end;
     }
-    if (OSDynLoad_FindExport(aoc_handle, false, "AOC_CloseTitle", reinterpret_cast<void **>(&AOC_CloseTitle)) != OS_DYNLOAD_OK) {
+    if (OSDynLoad_FindExport(aoc_handle, OS_DYNLOAD_EXPORT_FUNC, "AOC_CloseTitle", reinterpret_cast<void **>(&AOC_CloseTitle)) != OS_DYNLOAD_OK) {
         DEBUG_FUNCTION_LINE_WARN("OSDynLoad_FindExport failed");
         goto end;
     }
