@@ -3,6 +3,7 @@
 #include "utils/StringTools.h"
 #include "utils/logger.h"
 #include <coreinit/core.h>
+#include <coreinit/thread.h>
 
 FSStatus processFSError(FSError fsError, FSClient *client, FSErrorFlag errorMask) {
     auto result = fsError >= 0 ? static_cast<FSStatus>(fsError) : fsaDecodeFsaStatusToFsStatus(fsError);

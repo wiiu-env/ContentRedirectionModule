@@ -6,6 +6,7 @@
 #include "utils/utils.h"
 #include <coreinit/cache.h>
 #include <coreinit/filesystem_fsa.h>
+#include <coreinit/thread.h>
 #include <malloc.h>
 #include <map>
 #include <unistd.h>
