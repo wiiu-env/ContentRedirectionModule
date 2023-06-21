@@ -2,6 +2,7 @@
 #include "FileUtils.h"
 #include "utils/logger.h"
 #include <coreinit/core.h>
+#include <coreinit/thread.h>
 #include <malloc.h>
 
 static FSError processFSAShimInThread(FSAShimBuffer *shimBuffer) {
