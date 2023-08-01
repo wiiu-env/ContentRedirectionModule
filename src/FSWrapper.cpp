@@ -229,7 +229,7 @@ FSError FSWrapper::FSOpenFileWrapper(const char *path, const char *mode, FSFileH
         _mode = O_RDONLY;
     } else if (strcmp(mode, "r+") == 0) {
         _mode = O_RDWR;
-    } else if (strcmp(mode, "w") == 0) {
+    } else if (strcmp(mode, "w") == 0 || strcmp(mode, "wb") == 0) {
         _mode = O_WRONLY | O_CREAT | O_TRUNC;
     } else if (strcmp(mode, "w+") == 0) {
         _mode = O_RDWR | O_CREAT | O_TRUNC;
@@ -659,6 +659,7 @@ bool FSWrapper::IsFileModeAllowed(const char *mode) {
 
     if (pIsWriteable && (strcmp(mode, "r+") == 0 ||
                          strcmp(mode, "w") == 0 ||
+                         strcmp(mode, "wb") == 0 ||
                          strcmp(mode, "w+") == 0 ||
                          strcmp(mode, "a") == 0 ||
                          strcmp(mode, "a+") == 0)) {
