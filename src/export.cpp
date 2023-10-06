@@ -16,12 +16,12 @@ struct AOCTitle {
 WUT_CHECK_SIZE(AOCTitle, 0x68);
 
 bool getAOCPath(std::string &outStr) {
-    int32_t (*AOC_Initialize)()                                                                                                            = nullptr;
-    int32_t (*AOC_Finalize)()                                                                                                              = nullptr;
-    int32_t (*AOC_ListTitle)(uint32_t * titleCountOut, AOCTitle * titleList, uint32_t maxCount, void *workBuffer, uint32_t workBufferSize) = nullptr;
-    int32_t (*AOC_OpenTitle)(char *pathOut, AOCTitle *aocTitleInfo, void *workBuffer, uint32_t workBufferSize)                             = nullptr;
-    int32_t (*AOC_CalculateWorkBufferSize)(uint32_t count)                                                                                 = nullptr;
-    int32_t (*AOC_CloseTitle)(AOCTitle * aocTitleInfo)                                                                                     = nullptr;
+    int32_t (*AOC_Initialize)()                                                                                                          = nullptr;
+    int32_t (*AOC_Finalize)()                                                                                                            = nullptr;
+    int32_t (*AOC_ListTitle)(uint32_t *titleCountOut, AOCTitle *titleList, uint32_t maxCount, void *workBuffer, uint32_t workBufferSize) = nullptr;
+    int32_t (*AOC_OpenTitle)(char *pathOut, AOCTitle *aocTitleInfo, void *workBuffer, uint32_t workBufferSize)                           = nullptr;
+    int32_t (*AOC_CalculateWorkBufferSize)(uint32_t count)                                                                               = nullptr;
+    int32_t (*AOC_CloseTitle)(AOCTitle *aocTitleInfo)                                                                                    = nullptr;
 
     AOCTitle title{};
     char aocPath[256];
@@ -88,7 +88,7 @@ end:
     return result;
 }
 
-ContentRedirectionApiErrorType CRAddFSLayer(CRLayerHandle *handle, const char *layerName, const char *replacementDir, FSLayerType layerType) {
+ContentRedirectionApiErrorType CRAddFSLayerEx(CRLayerHandle *handle, const char *layerName, const char *replacementDir, FSLayerType layerType, uint32_t upid) {
     if (!handle || layerName == nullptr || replacementDir == nullptr) {
         DEBUG_FUNCTION_LINE_WARN("CONTENT_REDIRECTION_API_ERROR_INVALID_ARG");
         return CONTENT_REDIRECTION_API_ERROR_INVALID_ARG;
@@ -121,29 +121,40 @@ ContentRedirectionApiErrorType CRAddFSLayer(CRLayerHandle *handle, const char *l
     }
     if (ptr) {
         DEBUG_FUNCTION_LINE_VERBOSE("Added new layer (%s). Replacement dir: %s Type:%d", layerName, replacementDir, layerType);
-        std::lock_guard<std::mutex> lock(fsLayerMutex);
+        auto &layerInfo = sLayerInfoForUPID[upid];
+        std::lock_guard<std::mutex> lock(layerInfo->mutex);
         *handle = (CRLayerHandle) ptr->getHandle();
-        fsLayers.push_back(std::move(ptr));
+        layerInfo->layers.push_back(std::move(ptr));
         return CONTENT_REDIRECTION_API_ERROR_NONE;
     }
     DEBUG_FUNCTION_LINE_ERR("Failed to allocate memory");
     return CONTENT_REDIRECTION_API_ERROR_NO_MEMORY;
 }
 
-ContentRedirectionApiErrorType CRRemoveFSLayer(CRLayerHandle handle) {
-    if (!remove_locked_first_if(fsLayerMutex, fsLayers, [handle](auto &cur) { return (CRLayerHandle) cur->getHandle() == handle; })) {
-        DEBUG_FUNCTION_LINE_WARN("CONTENT_REDIRECTION_API_ERROR_LAYER_NOT_FOUND for handle %08X", handle);
-        return CONTENT_REDIRECTION_API_ERROR_LAYER_NOT_FOUND;
-    }
-    return CONTENT_REDIRECTION_API_ERROR_NONE;
+ContentRedirectionApiErrorType CRAddFSLayer(CRLayerHandle *handle, const char *layerName, const char *replacementDir, FSLayerType layerType) {
+    return CRAddFSLayerEx(handle, layerName, replacementDir, layerType, 2);
 }
 
-ContentRedirectionApiErrorType CRSetActive(CRLayerHandle handle, bool active) {
-    std::lock_guard<std::mutex> lock(fsLayerMutex);
-    for (auto &cur : fsLayers) {
-        if ((CRLayerHandle) cur->getHandle() == handle) {
-            cur->setActive(active);
+ContentRedirectionApiErrorType CRRemoveFSLayer(CRLayerHandle handle) {
+    for (auto &[key, layerInfo] : sLayerInfoForUPID) {
+        if (remove_locked_first_if(layerInfo->mutex, layerInfo->layers, [handle](auto &cur) { return (CRLayerHandle) cur->getHandle() == handle; })) {
             return CONTENT_REDIRECTION_API_ERROR_NONE;
+        }
+    }
+
+    DEBUG_FUNCTION_LINE_WARN("CONTENT_REDIRECTION_API_ERROR_LAYER_NOT_FOUND for handle %08X", handle);
+    return CONTENT_REDIRECTION_API_ERROR_LAYER_NOT_FOUND;
+}
+
+
+ContentRedirectionApiErrorType CRSetActive(CRLayerHandle handle, bool active) {
+    for (auto &[key, layerInfo] : sLayerInfoForUPID) {
+        std::lock_guard<std::mutex> lock(layerInfo->mutex);
+        for (auto &cur : layerInfo->layers) {
+            if ((CRLayerHandle) cur->getHandle() == handle) {
+                cur->setActive(active);
+                return CONTENT_REDIRECTION_API_ERROR_NONE;
+            }
         }
     }
 
@@ -155,7 +166,7 @@ ContentRedirectionApiErrorType CRGetVersion(ContentRedirectionVersion *outVersio
     if (outVersion == nullptr) {
         return CONTENT_REDIRECTION_API_ERROR_INVALID_ARG;
     }
-    *outVersion = 1;
+    *outVersion = 2;
     return CONTENT_REDIRECTION_API_ERROR_NONE;
 }
 
@@ -169,6 +180,7 @@ int CRRemoveDevice(const char *name) {
 
 WUMS_EXPORT_FUNCTION(CRGetVersion);
 WUMS_EXPORT_FUNCTION(CRAddFSLayer);
+WUMS_EXPORT_FUNCTION(CRAddFSLayerEx);
 WUMS_EXPORT_FUNCTION(CRRemoveFSLayer);
 WUMS_EXPORT_FUNCTION(CRSetActive);
 WUMS_EXPORT_FUNCTION(CRAddDevice);

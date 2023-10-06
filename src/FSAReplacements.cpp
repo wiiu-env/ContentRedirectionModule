@@ -7,20 +7,29 @@
 
 static FSError processFSAShimInThread(FSAShimBuffer *shimBuffer) {
     FSError res;
-    if (gThreadsRunning) {
+
+    auto upid = OSGetUPID();
+    if (!sLayerInfoForUPID.contains(upid)) {
+        DEBUG_FUNCTION_LINE_ERR("invalid UPID %d", upid);
+        OSFatal("Tried to start threads for invalid UPID.");
+    }
+
+    auto & layerInfo = sLayerInfoForUPID[upid];
+    if (layerInfo->threadsRunning) {
         auto param = (FSShimWrapper *) malloc(sizeof(FSShimWrapper));
         if (param == nullptr) {
             DEBUG_FUNCTION_LINE_ERR("Failed to allocate memory for FSShimWrapper");
             OSFatal("ContentRedirectionModule: Failed to allocate memory for FSShimWrapper");
         }
 
+        param->upid = OSGetUPID();
         param->api  = FS_SHIM_API_FSA;
         param->sync = FS_SHIM_TYPE_SYNC;
         param->shim = shimBuffer;
 
-        if (OSGetCurrentThread() == gThreadData[OSGetCoreId()].thread) {
+        if (OSGetCurrentThread() == layerInfo->threadData[OSGetCoreId()].thread) {
             res = processShimBufferForFSA(param);
-            //No need to clean "param", it has been already free'd in processFSAShimBuffer.
+            // No need to clean "param", it has been already free'd in processFSAShimBuffer.
         } else {
             auto message = (FSShimWrapperMessage *) malloc(sizeof(FSShimWrapperMessage));
             if (message == nullptr) {
@@ -31,7 +40,7 @@ static FSError processFSAShimInThread(FSAShimBuffer *shimBuffer) {
 
             constexpr int32_t messageSize = sizeof(message->messages) / sizeof(message->messages[0]);
             OSInitMessageQueue(&message->messageQueue, message->messages, messageSize);
-            if (!sendMessageToThread(message)) {
+            if (!sendMessageToThread(layerInfo, message)) {
                 DEBUG_FUNCTION_LINE_ERR("Failed to send message to thread");
                 OSFatal("ContentRedirectionModule: Failed send message to thread");
             }

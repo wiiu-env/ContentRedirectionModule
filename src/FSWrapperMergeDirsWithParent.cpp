@@ -239,7 +239,7 @@ FSWrapperMergeDirsWithParent::~FSWrapperMergeDirsWithParent() {
     if (clientHandle) {
         FSError res;
         if ((res = FSADelClient(clientHandle)) != FS_ERROR_OK) {
-            DEBUG_FUNCTION_LINE_ERR("[%s] FSADelClient failed: %s (%d)", FSAGetStatusStr(res), res);
+            DEBUG_FUNCTION_LINE_ERR("FSADelClient failed: %s (%d)", FSAGetStatusStr(res), res);
         }
         clientHandle = 0;
     }

@@ -2,8 +2,10 @@
 #include "FileUtils.h"
 #include "utils/StringTools.h"
 #include "utils/logger.h"
+#include <content_redirection/redirection.h>
 #include <coreinit/core.h>
 #include <coreinit/thread.h>
+#include <mocha/mocha.h>
 
 FSStatus processFSError(FSError fsError, FSClient *client, FSErrorFlag errorMask) {
     auto result = fsError >= 0 ? static_cast<FSStatus>(fsError) : fsaDecodeFsaStatusToFsStatus(fsError);
@@ -89,7 +91,15 @@ void handleAsyncRequestsCallback(IOSError err, void *context) {
 
 bool processFSAShimInThread(FSAShimBuffer *shimBuffer, FSClient *client, FSCmdBlock *block, FSErrorFlag errorMask, FSAsyncData *asyncData) {
     bool res = false;
-    if (gThreadsRunning) {
+
+    auto upid = OSGetUPID();
+    if (!sLayerInfoForUPID.contains(upid)) {
+        DEBUG_FUNCTION_LINE_ERR("invalid UPID %d", upid);
+        OSFatal("Tried to start threads for invalid UPID.");
+    }
+
+    auto & layerInfo = sLayerInfoForUPID[upid];
+    if (layerInfo->threadsRunning) {
         // we **don't** need to free this in this function.
         auto param = (FSShimWrapper *) malloc(sizeof(FSShimWrapper));
         if (param == nullptr) {
@@ -97,6 +107,7 @@ bool processFSAShimInThread(FSAShimBuffer *shimBuffer, FSClient *client, FSCmdBl
             OSFatal("ContentRedirectionModule: Failed to allocate memory for FSShimWrapper");
         }
 
+        param->upid             = OSGetUPID();
         param->api              = FS_SHIM_API_FS;
         param->sync             = FS_SHIM_TYPE_ASYNC;
         param->shim             = shimBuffer;
@@ -111,7 +122,7 @@ bool processFSAShimInThread(FSAShimBuffer *shimBuffer, FSClient *client, FSCmdBl
         // Copy by value
         param->asyncFS.errorMask = errorMask;
 
-        if (OSGetCurrentThread() == gThreadData[OSGetCoreId()].thread) {
+        if (OSGetCurrentThread() == layerInfo->threadData[OSGetCoreId()].thread) {
             processShimBufferForFS(param);
             // because we're doing this in sync, free(param) has already been called at this point.
             res = true;
@@ -122,7 +133,7 @@ bool processFSAShimInThread(FSAShimBuffer *shimBuffer, FSClient *client, FSCmdBl
                 OSFatal("ContentRedirectionModule: Failed to allocate memory for FSShimWrapperMessage");
             }
             message->param = param;
-            res            = sendMessageToThread(message);
+            res            = sendMessageToThread(layerInfo, message);
             // the other thread is call free for us, so we can return early!
         }
     } else {
@@ -217,7 +228,6 @@ DECL_FUNCTION(FSStatus, FSOpenFileExAsync, FSClient *client, FSCmdBlock *block, 
         auto *hackyBuffer = (uint32_t *) &shimBuffer->response;
         hackyBuffer[1]    = (uint32_t) handle;
         if (processFSAShimInThread(shimBuffer, client, block, errorMask, asyncData)) {
-
             return FS_STATUS_OK;
         }
     }
@@ -555,28 +565,74 @@ DECL_FUNCTION(FSStatus, FSChangeDirAsync, FSClient *client, FSCmdBlock *block, c
     return real_FSChangeDirAsync(client, block, path, errorMask, asyncData);
 }
 
-function_replacement_data_t fs_file_function_replacements[] = {
-        REPLACE_FUNCTION(FSOpenFileExAsync, LIBRARY_COREINIT, FSOpenFileExAsync),
-        REPLACE_FUNCTION(FSCloseFileAsync, LIBRARY_COREINIT, FSCloseFileAsync),
-        REPLACE_FUNCTION(FSGetStatAsync, LIBRARY_COREINIT, FSGetStatAsync),
-        REPLACE_FUNCTION(FSGetStatFileAsync, LIBRARY_COREINIT, FSGetStatFileAsync),
-        REPLACE_FUNCTION_VIA_ADDRESS(FSReadFileGeneric, 0x3201C400 + 0x4ecc0, 0x101C400 + 0x4ecc0),
-        REPLACE_FUNCTION(FSSetPosFileAsync, LIBRARY_COREINIT, FSSetPosFileAsync),
-        REPLACE_FUNCTION(FSGetPosFileAsync, LIBRARY_COREINIT, FSGetPosFileAsync),
-        REPLACE_FUNCTION(FSIsEofAsync, LIBRARY_COREINIT, FSIsEofAsync),
-        REPLACE_FUNCTION_VIA_ADDRESS(FSWriteFileGeneric, 0x3201C400 + 0x4eec0, 0x101C400 + 0x4eec0),
-        REPLACE_FUNCTION(FSTruncateFileAsync, LIBRARY_COREINIT, FSTruncateFileAsync),
-        REPLACE_FUNCTION(FSRemoveAsync, LIBRARY_COREINIT, FSRemoveAsync),
-        REPLACE_FUNCTION(FSRenameAsync, LIBRARY_COREINIT, FSRenameAsync),
-        REPLACE_FUNCTION(FSFlushFileAsync, LIBRARY_COREINIT, FSFlushFileAsync),
-        REPLACE_FUNCTION(FSChangeModeAsync, LIBRARY_COREINIT, FSChangeModeAsync),
+DECL_FUNCTION(void, __PPCExit, uint32_t u1) {
+    auto UPID = OSGetUPID();
+    if (UPID != 2 && UPID != 15 && sLayerInfoForUPID.contains(UPID)) {
+        DEBUG_FUNCTION_LINE_ERR("Clear layer for UPID %d", UPID);
+        clearFSLayer(sLayerInfoForUPID[UPID]);
+        stopFSIOThreads();
+    }
+    real___PPCExit(u1);
+}
 
-        REPLACE_FUNCTION(FSOpenDirAsync, LIBRARY_COREINIT, FSOpenDirAsync),
-        REPLACE_FUNCTION(FSReadDirAsync, LIBRARY_COREINIT, FSReadDirAsync),
-        REPLACE_FUNCTION(FSCloseDirAsync, LIBRARY_COREINIT, FSCloseDirAsync),
-        REPLACE_FUNCTION(FSRewindDirAsync, LIBRARY_COREINIT, FSRewindDirAsync),
-        REPLACE_FUNCTION(FSMakeDirAsync, LIBRARY_COREINIT, FSMakeDirAsync),
-        REPLACE_FUNCTION(FSChangeDirAsync, LIBRARY_COREINIT, FSChangeDirAsync),
+MochaUtilsStatus MountWrapper(const char *mount, const char *dev, const char *mountTo) {
+    auto res = Mocha_MountFS(mount, dev, mountTo);
+    if (res == MOCHA_RESULT_ALREADY_EXISTS) {
+        res = Mocha_MountFS(mount, nullptr, mountTo);
+    }
+
+    if (res == MOCHA_RESULT_SUCCESS) {
+        std::string mountPath = std::string(mount) + ":/";
+        DEBUG_FUNCTION_LINE_VERBOSE("Mounted %s", mountPath.c_str());
+    } else {
+        DEBUG_FUNCTION_LINE_ERR("Failed to mount %s: %s [%d]", mount, Mocha_GetStatusStr(res), res);
+    }
+    return res;
+}
+
+extern ContentRedirectionApiErrorType CRAddFSLayerEx(CRLayerHandle *handle, const char *layerName, const char *replacementDir, FSLayerType layerType, uint32_t upid);
+DECL_FUNCTION(void, START_HOOK) {
+    real_START_HOOK();
+    auto UPID = OSGetUPID();
+    if (UPID != 2 && UPID != 15 && sLayerInfoForUPID.contains(UPID)) {
+        DEBUG_FUNCTION_LINE_ERR("Clear layer for UPID %d", UPID);
+        clearFSLayer(sLayerInfoForUPID[UPID]);
+        DEBUG_FUNCTION_LINE_ERR("Start threads");
+        startFSIOThreads();
+    }
+    if (UPID == 8) {
+        CRLayerHandle handle;
+        int test = (int) 2;
+
+        Mocha_MountFS("storage_mlc", nullptr, "/vol/storage_mlc01");
+        CRAddFSLayerEx(&handle, "browser_test", "storage_mlc:/usr/tmp", FS_LAYER_TYPE_CONTENT_MERGE, UPID);
+    }
+}
+
+function_replacement_data_t fs_file_function_replacements[] = {
+        REPLACE_FUNCTION_FOR_PROCESS(__PPCExit, LIBRARY_COREINIT, __PPCExit, FP_TARGET_PROCESS_ALL),
+        REPLACE_FUNCTION_FOR_PROCESS(FSOpenFileExAsync, LIBRARY_COREINIT, FSOpenFileExAsync, FP_TARGET_PROCESS_ALL),
+        REPLACE_FUNCTION_FOR_PROCESS(FSCloseFileAsync, LIBRARY_COREINIT, FSCloseFileAsync, FP_TARGET_PROCESS_ALL),
+        REPLACE_FUNCTION_FOR_PROCESS(FSGetStatAsync, LIBRARY_COREINIT, FSGetStatAsync, FP_TARGET_PROCESS_ALL),
+        REPLACE_FUNCTION_FOR_PROCESS(FSGetStatFileAsync, LIBRARY_COREINIT, FSGetStatFileAsync, FP_TARGET_PROCESS_ALL),
+        REPLACE_FUNCTION_VIA_ADDRESS_FOR_PROCESS(FSReadFileGeneric, 0x3201C400 + 0x4ecc0, 0x101C400 + 0x4ecc0, FP_TARGET_PROCESS_ALL),
+        REPLACE_FUNCTION_FOR_PROCESS(FSSetPosFileAsync, LIBRARY_COREINIT, FSSetPosFileAsync, FP_TARGET_PROCESS_ALL),
+        REPLACE_FUNCTION_FOR_PROCESS(FSGetPosFileAsync, LIBRARY_COREINIT, FSGetPosFileAsync, FP_TARGET_PROCESS_ALL),
+        REPLACE_FUNCTION_FOR_PROCESS(FSIsEofAsync, LIBRARY_COREINIT, FSIsEofAsync, FP_TARGET_PROCESS_ALL),
+        REPLACE_FUNCTION_VIA_ADDRESS_FOR_PROCESS(FSWriteFileGeneric, 0x3201C400 + 0x4eec0, 0x101C400 + 0x4eec0, FP_TARGET_PROCESS_ALL),
+        REPLACE_FUNCTION_VIA_ADDRESS_FOR_PROCESS(START_HOOK, 0x3201C400 + 0x3edc0, 0x101C400 + 0x3edc0, FP_TARGET_PROCESS_ALL),
+        REPLACE_FUNCTION_FOR_PROCESS(FSTruncateFileAsync, LIBRARY_COREINIT, FSTruncateFileAsync, FP_TARGET_PROCESS_ALL),
+        REPLACE_FUNCTION_FOR_PROCESS(FSRemoveAsync, LIBRARY_COREINIT, FSRemoveAsync, FP_TARGET_PROCESS_ALL),
+        REPLACE_FUNCTION_FOR_PROCESS(FSRenameAsync, LIBRARY_COREINIT, FSRenameAsync, FP_TARGET_PROCESS_ALL),
+        REPLACE_FUNCTION_FOR_PROCESS(FSFlushFileAsync, LIBRARY_COREINIT, FSFlushFileAsync, FP_TARGET_PROCESS_ALL),
+        REPLACE_FUNCTION_FOR_PROCESS(FSChangeModeAsync, LIBRARY_COREINIT, FSChangeModeAsync, FP_TARGET_PROCESS_ALL),
+
+        REPLACE_FUNCTION_FOR_PROCESS(FSOpenDirAsync, LIBRARY_COREINIT, FSOpenDirAsync, FP_TARGET_PROCESS_ALL),
+        REPLACE_FUNCTION_FOR_PROCESS(FSReadDirAsync, LIBRARY_COREINIT, FSReadDirAsync, FP_TARGET_PROCESS_ALL),
+        REPLACE_FUNCTION_FOR_PROCESS(FSCloseDirAsync, LIBRARY_COREINIT, FSCloseDirAsync, FP_TARGET_PROCESS_ALL),
+        REPLACE_FUNCTION_FOR_PROCESS(FSRewindDirAsync, LIBRARY_COREINIT, FSRewindDirAsync, FP_TARGET_PROCESS_ALL),
+        REPLACE_FUNCTION_FOR_PROCESS(FSMakeDirAsync, LIBRARY_COREINIT, FSMakeDirAsync, FP_TARGET_PROCESS_ALL),
+        REPLACE_FUNCTION_FOR_PROCESS(FSChangeDirAsync, LIBRARY_COREINIT, FSChangeDirAsync, FP_TARGET_PROCESS_ALL),
 };
 
 uint32_t fs_file_function_replacements_size = sizeof(fs_file_function_replacements) / sizeof(function_replacement_data_t);
