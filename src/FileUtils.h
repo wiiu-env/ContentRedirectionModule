@@ -7,7 +7,6 @@
 #include <coreinit/filesystem_fsa.h>
 #include <functional>
 #include <mutex>
-#include <romfs_dev.h>
 #include <string>
 
 struct FSIOThreadData {
