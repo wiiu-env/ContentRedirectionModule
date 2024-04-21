@@ -115,6 +115,10 @@ ContentRedirectionApiErrorType CRAddFSLayer(CRLayerHandle *handle, const char *l
     } else if (layerType == FS_LAYER_TYPE_SAVE_REPLACE) {
         DEBUG_FUNCTION_LINE_INFO("Redirecting \"/vol/save\" to \"%s\", mode: \"replace\"", replacementDir);
         ptr = make_unique_nothrow<FSWrapper>(layerName, "/vol/save", replacementDir, false, true);
+    } else if (layerType == FS_LAYER_TYPE_SAVE_REPLACE_IGNORE_VOL_SAVE_COMMON) {
+        DEBUG_FUNCTION_LINE_INFO("Redirecting \"/vol/save\" to \"%s\", mode: \"replace\", ignore: (\"/vol/save/common\")", replacementDir);
+        std::vector<std::string> ignorePaths({"/vol/save/common"});
+        ptr = make_unique_nothrow<FSWrapper>(layerName, "/vol/save", replacementDir, false, true, ignorePaths);
     } else {
         DEBUG_FUNCTION_LINE_ERR("CONTENT_REDIRECTION_API_ERROR_UNKNOWN_LAYER_DIR_TYPE: %s %s %d", layerName, replacementDir, layerType);
         return CONTENT_REDIRECTION_API_ERROR_UNKNOWN_FS_LAYER_TYPE;
