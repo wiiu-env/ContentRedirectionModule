@@ -98,6 +98,9 @@ FSError FSWrapper::FSReadDirWrapper(FSDirectoryHandle handle, FSDirectoryEntry *
                 if (strcmp(entry_->d_name, ".") == 0 || strcmp(entry_->d_name, "..") == 0) {
                     entry->info.size = 0;
                 } else {
+#ifdef _DIRENT_HAVE_D_STAT
+                    translate_stat(&entry_->d_stat, &entry->info);
+#else
                     struct stat sb {};
                     auto path = string_format("%s/%s", dirHandle->path, entry_->d_name);
                     std::replace(path.begin(), path.end(), '\\', '/');
@@ -120,6 +123,7 @@ FSError FSWrapper::FSReadDirWrapper(FSDirectoryHandle handle, FSDirectoryEntry *
                         result = FS_ERROR_MEDIA_ERROR;
                         break;
                     }
+#endif
                 }
             }
             result = FS_ERROR_OK;
