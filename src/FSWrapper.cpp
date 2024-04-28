@@ -125,8 +125,8 @@ FSError FSWrapper::FSReadDirWrapper(FSDirectoryHandle handle, FSDirectoryEntry *
             result = FS_ERROR_OK;
         } else {
             auto err = errno;
-            if (err != 0) {
-                DEBUG_FUNCTION_LINE_ERR("[%s] Failed to read dir %08X (handle %08X)", getName().c_str(), dir, handle);
+            if (err != 0 && err != 2) { // newlib currently has a bug and doesn't clear errno properly when the end of a dir is reached
+                DEBUG_FUNCTION_LINE_ERR("[%s] Failed to read dir %08X (handle %08X). errno %d (%s)", getName().c_str(), dir, handle, err, strerror(err));
                 result = FS_ERROR_MEDIA_ERROR;
             }
         }
