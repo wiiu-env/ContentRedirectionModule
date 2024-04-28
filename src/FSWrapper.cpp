@@ -670,15 +670,7 @@ bool FSWrapper::IsFileModeAllowed(const char *mode) {
 }
 
 bool FSWrapper::IsPathToReplace(const std::string_view &path) {
-    if (!path.starts_with(pPathToReplace)) {
-        return false;
-    }
-
-    if (std::ranges::any_of(pIgnorePaths.cbegin(), pIgnorePaths.cend(), [&path](auto &ignorePath) { return path.starts_with(ignorePath); })) {
-        return false;
-    }
-
-    return true;
+    return path.starts_with(pPathToReplace);
 }
 
 std::string FSWrapper::GetNewPath(const std::string_view &path) {

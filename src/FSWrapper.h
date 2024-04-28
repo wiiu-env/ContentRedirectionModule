@@ -10,20 +10,16 @@
 
 class FSWrapper : public IFSWrapper {
 public:
-    FSWrapper(const std::string &name, const std::string &pathToReplace, const std::string &replacePathWith, bool fallbackOnError, bool isWriteable, std::vector<std::string> ignorePaths = {}) {
+    FSWrapper(const std::string &name, const std::string &pathToReplace, const std::string &replacePathWith, bool fallbackOnError, bool isWriteable) {
         this->pName            = name;
         this->pPathToReplace   = pathToReplace;
         this->pReplacePathWith = replacePathWith;
         this->pFallbackOnError = fallbackOnError;
         this->pIsWriteable     = isWriteable;
         this->pCheckIfDeleted  = fallbackOnError;
-        this->pIgnorePaths     = std::move(ignorePaths);
 
         std::replace(pPathToReplace.begin(), pPathToReplace.end(), '\\', '/');
         std::replace(pReplacePathWith.begin(), pReplacePathWith.end(), '\\', '/');
-        for (auto &ignorePath : pIgnorePaths) {
-            std::replace(ignorePath.begin(), ignorePath.end(), '\\', '/');
-        }
     }
     ~FSWrapper() override {
         {
@@ -133,7 +129,6 @@ protected:
 private:
     std::string pPathToReplace;
     std::string pReplacePathWith;
-    std::vector<std::string> pIgnorePaths;
     bool pIsWriteable = false;
     std::mutex openFilesMutex;
     std::mutex openDirsMutex;
