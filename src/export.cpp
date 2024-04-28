@@ -3,11 +3,13 @@
 #include "FileUtils.h"
 #include "IFSWrapper.h"
 #include "malloc.h"
+#include "utils/StringTools.h"
 #include "utils/logger.h"
 #include "utils/utils.h"
 #include <content_redirection/redirection.h>
 #include <coreinit/dynload.h>
 #include <mutex>
+#include <nn/act.h>
 #include <wums/exports.h>
 
 struct AOCTitle {
@@ -115,6 +117,15 @@ ContentRedirectionApiErrorType CRAddFSLayer(CRLayerHandle *handle, const char *l
     } else if (layerType == FS_LAYER_TYPE_SAVE_REPLACE) {
         DEBUG_FUNCTION_LINE_INFO("Redirecting \"/vol/save\" to \"%s\", mode: \"replace\"", replacementDir);
         ptr = make_unique_nothrow<FSWrapper>(layerName, "/vol/save", replacementDir, false, true);
+    } else if (layerType == FS_LAYER_TYPE_SAVE_REPLACE_FOR_CURRENT_USER) {
+        nn::act::Initialize();
+        nn::act::PersistentId persistentId = nn::act::GetPersistentId();
+        nn::act::Finalize();
+
+        std::string user = string_format("/vol/save/%08X", 0x80000000 | persistentId);
+
+        DEBUG_FUNCTION_LINE_INFO("Redirecting \"%s\" to \"%s\", mode: \"replace\"", user.c_str(), replacementDir);
+        ptr = make_unique_nothrow<FSWrapper>(layerName, user, replacementDir, false, true);
     } else {
         DEBUG_FUNCTION_LINE_ERR("CONTENT_REDIRECTION_API_ERROR_UNKNOWN_LAYER_DIR_TYPE: %s %s %d", layerName, replacementDir, layerType);
         return CONTENT_REDIRECTION_API_ERROR_UNKNOWN_FS_LAYER_TYPE;
