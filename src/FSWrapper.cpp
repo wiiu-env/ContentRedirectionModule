@@ -83,7 +83,7 @@ FSError FSWrapper::FSReadDirWrapper(FSDirectoryHandle handle, FSDirectoryEntry *
         struct dirent *entry_ = readdir(dir);
 
         if (entry_) {
-            if (SkipDeletedFilesInReadDir() && std::string_view(entry_->d_name).starts_with(deletePrefix)) {
+            if (SkipDeletedFilesInReadDir() && starts_with_case_insensitive(entry_->d_name, deletePrefix)) {
                 DEBUG_FUNCTION_LINE_ERR("Skip file file name %s because of the prefix", entry_->d_name);
                 continue;
             }
@@ -317,7 +317,7 @@ FSError FSWrapper::FSCloseFileWrapper(FSFileHandle handle) {
 bool FSWrapper::CheckFileShouldBeIgnored(std::string &path) {
     auto asPath = std::filesystem::path(path);
 
-    if (std::string(asPath.filename().c_str()).starts_with(deletePrefix)) {
+    if (starts_with_case_insensitive(asPath.filename().c_str(), deletePrefix)) {
         DEBUG_FUNCTION_LINE_VERBOSE("[%s] Ignore %s, filename starts with %s", getName().c_str(), path.c_str(), deletePrefix.c_str());
         return true;
     }
@@ -673,8 +673,9 @@ bool FSWrapper::IsFileModeAllowed(const char *mode) {
     return false;
 }
 
+
 bool FSWrapper::IsPathToReplace(const std::string_view &path) {
-    return path.starts_with(pPathToReplace);
+    return starts_with_case_insensitive(path, pPathToReplace);
 }
 
 std::string FSWrapper::GetNewPath(const std::string_view &path) {

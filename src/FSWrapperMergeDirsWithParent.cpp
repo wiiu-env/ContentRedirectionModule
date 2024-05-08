@@ -1,4 +1,5 @@
 #include "FSWrapperMergeDirsWithParent.h"
+#include "utils/StringTools.h"
 #include "utils/logger.h"
 #include "utils/utils.h"
 #include <coreinit/cache.h>
@@ -83,7 +84,7 @@ FSError FSWrapperMergeDirsWithParent::FSReadDirWrapper(FSADirectoryHandle handle
                 /**
                  * Read the next entry if this entry starts with deletePrefix. We keep the entry but mark it as deleted.
                  */
-                if (std::string_view(entry->name).starts_with(deletePrefix)) {
+                if (starts_with_case_insensitive(entry->name, deletePrefix)) {
                     dirHandle->readResult[dirHandle->readResultNumberOfEntries].isMarkedAsDeleted = true;
 
                     OSMemoryBarrier();
