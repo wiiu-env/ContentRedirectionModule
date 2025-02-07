@@ -4,7 +4,6 @@
 #include "utils/logger.h"
 #include "utils/utils.h"
 
-
 #include <coreinit/cache.h>
 #include <coreinit/debug.h>
 
@@ -31,7 +30,7 @@ FSError FSWrapper::FSOpenDirWrapper(const char *path, FSDirectoryHandle *handle)
 
     FSError result = FS_ERROR_OK;
 
-    auto dirHandle = getNewDirHandle();
+    const auto dirHandle = getNewDirInfoHandle();
     if (dirHandle) {
         DIR *dir;
         auto newPath = GetNewPath(path);
@@ -75,7 +74,7 @@ FSError FSWrapper::FSReadDirWrapper(const FSDirectoryHandle handle, FSDirectoryE
     if (!isValidDirHandle(handle)) {
         return FS_ERROR_FORCE_PARENT_LAYER;
     }
-    auto dirHandle = getDirFromHandle(handle);
+    const auto dirHandle = getDirInfoFromHandle(handle);
 
     DIR *dir = dirHandle->dir;
 
@@ -146,7 +145,7 @@ FSError FSWrapper::FSCloseDirWrapper(const FSDirectoryHandle handle) {
     if (!isValidDirHandle(handle)) {
         return FS_ERROR_FORCE_PARENT_LAYER;
     }
-    auto dirHandle = getDirFromHandle(handle);
+    const auto dirHandle = getDirInfoFromHandle(handle);
 
     DIR *dir = dirHandle->dir;
 
@@ -165,7 +164,7 @@ FSError FSWrapper::FSRewindDirWrapper(const FSDirectoryHandle handle) {
     if (!isValidDirHandle(handle)) {
         return FS_ERROR_FORCE_PARENT_LAYER;
     }
-    auto dirHandle = getDirFromHandle(handle);
+    const auto dirHandle = getDirInfoFromHandle(handle);
 
     DIR *dir = dirHandle->dir;
 
@@ -716,7 +715,7 @@ std::shared_ptr<FileInfo> FSWrapper::getNewFileHandle() {
     return make_shared_nothrow<FileInfo>();
 }
 
-std::shared_ptr<DirInfo> FSWrapper::getNewDirHandle() {
+std::shared_ptr<DirInfo> FSWrapper::getNewDirInfoHandle() {
     return make_shared_nothrow<DirInfo>();
 }
 
@@ -758,4 +757,14 @@ void FSWrapper::deleteFileHandle(FSFileHandle handle) {
 
 bool FSWrapper::SkipDeletedFilesInReadDir() {
     return true;
+}
+
+std::shared_ptr<DirInfo> FSWrapper::getDirInfoFromHandle(const FSDirectoryHandle handle) {
+    auto dir = std::dynamic_pointer_cast<DirInfo>(getDirFromHandle(handle));
+
+    if (!dir) {
+        DEBUG_FUNCTION_LINE_ERR("[%s] dynamic_pointer_cast<DirInfoEx *>(%08X) failed", getName().c_str(), handle);
+        OSFatal("ContentRedirectionModule: dynamic_pointer_cast<DirInfoEx *> failed");
+    }
+    return dir;
 }

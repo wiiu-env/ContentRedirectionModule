@@ -108,7 +108,7 @@ protected:
 
     [[nodiscard]] virtual std::string GetNewPath(const std::string_view &path) const;
 
-    std::shared_ptr<DirInfo> getDirFromHandle(FSDirectoryHandle handle);
+    std::shared_ptr<DirInfoBase> getDirFromHandle(FSDirectoryHandle handle);
     std::shared_ptr<FileInfo> getFileFromHandle(FSFileHandle handle);
 
     bool isValidDirHandle(FSDirectoryHandle handle) override;
@@ -120,7 +120,7 @@ protected:
     virtual bool CheckFileShouldBeIgnored(std::string &path);
 
     virtual std::shared_ptr<FileInfo> getNewFileHandle();
-    virtual std::shared_ptr<DirInfo> getNewDirHandle();
+    virtual std::shared_ptr<DirInfo> getNewDirInfoHandle();
 
     virtual bool SkipDeletedFilesInReadDir();
 
@@ -129,11 +129,12 @@ protected:
     std::string deletePrefix = ".deleted_";
 
 private:
+    std::shared_ptr<DirInfo> getDirInfoFromHandle(FSDirectoryHandle handle);
     std::string pPathToReplace;
     std::string pReplacePathWith;
     bool pIsWriteable = false;
     std::mutex openFilesMutex;
     std::mutex openDirsMutex;
     std::vector<std::shared_ptr<FileInfo>> openFiles;
-    std::vector<std::shared_ptr<DirInfo>> openDirs;
+    std::vector<std::shared_ptr<DirInfoBase>> openDirs;
 };

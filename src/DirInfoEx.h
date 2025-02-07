@@ -7,8 +7,7 @@ typedef struct FSDirectoryEntryEx {
     bool isMarkedAsDeleted = false;
 } FSDirectoryEntryEx;
 
-struct DirInfoEx : public DirInfo {
-public:
+struct DirInfoEx final : DirInfo {
     FSDirectoryEntryEx *readResult  = nullptr;
     int readResultCapacity          = 0;
     int readResultNumberOfEntries   = 0;

@@ -23,7 +23,7 @@ public:
 
     FSError FSRewindDirWrapper(FSDirectoryHandle handle) override;
 
-    std::shared_ptr<DirInfo> getNewDirHandle() override;
+    std::shared_ptr<DirInfo> getNewDirInfoHandle() override;
 
     bool SkipDeletedFilesInReadDir() override;
 
@@ -34,5 +34,5 @@ public:
 private:
     FSAClientHandle mClientHandle;
 
-    std::shared_ptr<DirInfoEx> getDirExFromHandle(FSDirectoryHandle handle);
+    std::shared_ptr<DirInfoEx> getDirInfoExFromHandle(FSDirectoryHandle handle);
 };
