@@ -114,6 +114,7 @@ protected:
     bool isValidDirHandle(FSDirectoryHandle handle) override;
     bool isValidFileHandle(FSFileHandle handle) override;
 
+    void addDirHandle(const std::shared_ptr<DirInfoBase> &dirHandle);
     void deleteDirHandle(FSDirectoryHandle handle) override;
     void deleteFileHandle(FSFileHandle handle) override;
 
