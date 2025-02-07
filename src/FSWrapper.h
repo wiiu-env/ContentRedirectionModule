@@ -1,16 +1,19 @@
 #pragma once
+
 #include "DirInfo.h"
 #include "FileInfo.h"
 #include "IFSWrapper.h"
 #include "utils/logger.h"
+
 #include <coreinit/filesystem.h>
-#include <coreinit/mutex.h>
+
+#include <algorithm>
 #include <functional>
 #include <mutex>
 
 class FSWrapper : public IFSWrapper {
 public:
-    FSWrapper(const std::string &name, const std::string &pathToReplace, const std::string &replacePathWith, bool fallbackOnError, bool isWriteable) {
+    FSWrapper(const std::string &name, const std::string &pathToReplace, const std::string &replacePathWith, const bool fallbackOnError, const bool isWriteable) {
         this->pName            = name;
         this->pPathToReplace   = pathToReplace;
         this->pReplacePathWith = replacePathWith;
@@ -18,23 +21,22 @@ public:
         this->pIsWriteable     = isWriteable;
         this->pCheckIfDeleted  = fallbackOnError;
 
-        std::replace(pPathToReplace.begin(), pPathToReplace.end(), '\\', '/');
-        std::replace(pReplacePathWith.begin(), pReplacePathWith.end(), '\\', '/');
+        std::ranges::replace(pPathToReplace, '\\', '/');
+        std::ranges::replace(pReplacePathWith, '\\', '/');
     }
     ~FSWrapper() override {
         {
-            std::lock_guard<std::mutex> lockFiles(openFilesMutex);
+            std::lock_guard lockFiles(openFilesMutex);
             openFiles.clear();
         }
         {
-            std::lock_guard<std::mutex> lockDirs(openDirsMutex);
+            std::lock_guard lockDirs(openDirsMutex);
             openDirs.clear();
         }
     }
 
     FSError FSOpenDirWrapper(const char *path,
                              FSDirectoryHandle *handle) override;
-
 
     FSError FSReadDirWrapper(FSDirectoryHandle handle,
                              FSDirectoryEntry *entry) override;
@@ -96,7 +98,7 @@ public:
     FSError FSFlushFileWrapper(FSFileHandle handle) override;
 
     uint32_t getLayerId() override {
-        return (uint32_t) this;
+        return getHandle();
     }
 
 protected:

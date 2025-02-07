@@ -1,10 +1,10 @@
 #pragma once
 #include "DirInfoEx.h"
 #include "FSWrapper.h"
-#include <coreinit/filesystem.h>
-#include <functional>
 
-class FSWrapperMergeDirsWithParent : public FSWrapper {
+#include <coreinit/filesystem.h>
+
+class FSWrapperMergeDirsWithParent final : public FSWrapper {
 public:
     FSWrapperMergeDirsWithParent(const std::string &name,
                                  const std::string &pathToReplace,
@@ -28,11 +28,11 @@ public:
     bool SkipDeletedFilesInReadDir() override;
 
     uint32_t getLayerId() override {
-        return (uint32_t) clientHandle;
+        return static_cast<uint32_t>(mClientHandle);
     }
 
 private:
-    FSAClientHandle clientHandle;
+    FSAClientHandle mClientHandle;
 
     std::shared_ptr<DirInfoEx> getDirExFromHandle(FSDirectoryHandle handle);
 };

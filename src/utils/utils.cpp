@@ -54,7 +54,7 @@ FSTime translate_time(time_t timeValue) {
     return adjustedTimeValue * 1000000;
 }
 
-void translate_stat(struct stat *posStat, FSStat *fsStat) {
+void translate_stat(const struct stat *posStat, FSStat *fsStat) {
     memset(fsStat, 0, sizeof(FSStat));
     fsStat->size = posStat->st_size;
 
