@@ -2,9 +2,11 @@
 #include "utils/StringTools.h"
 #include "utils/logger.h"
 #include "utils/utils.h"
+
 #include <coreinit/cache.h>
 #include <coreinit/debug.h>
 #include <coreinit/filesystem.h>
+
 #include <filesystem>
 
 FSError FSWrapperMergeDirsWithParent::FSOpenDirWrapper(const char *path,
@@ -27,11 +29,11 @@ FSError FSWrapperMergeDirsWithParent::FSOpenDirWrapper(const char *path,
             dirHandle->readResultNumberOfEntries = 0;
             dirHandle->realDirHandle             = 0;
 
-            if (clientHandle) {
+            if (mClientHandle) {
                 FSADirectoryHandle realHandle = 0;
                 DEBUG_FUNCTION_LINE_VERBOSE("[%s] Call FSAOpenDir with %s for parent layer", getName().c_str(), path);
                 FSError err;
-                if ((err = FSAOpenDir(clientHandle, path, &realHandle)) == FS_ERROR_OK) {
+                if ((err = FSAOpenDir(mClientHandle, path, &realHandle)) == FS_ERROR_OK) {
                     dirHandle->realDirHandle = realHandle;
                 } else {
                     DEBUG_FUNCTION_LINE_ERR("[%s] Failed to open real dir %s. %s (%d)", getName().c_str(), path, FSAGetStatusStr(err), err);
@@ -58,6 +60,10 @@ FSError FSWrapperMergeDirsWithParent::FSReadDirWrapper(FSADirectoryHandle handle
                 return FS_ERROR_INVALID_DIRHANDLE;
             }
             auto dirHandle = getDirExFromHandle(handle);
+            if (!dirHandle) {
+                DEBUG_FUNCTION_LINE_ERR("[%s] No valid dir handle %08X", getName().c_str(), handle);
+                return FS_ERROR_INVALID_DIRHANDLE;
+            }
             if (res == FS_ERROR_OK) {
                 if (dirHandle->readResultCapacity == 0) {
                     dirHandle->readResult = (FSDirectoryEntryEx *) malloc(sizeof(FSDirectoryEntryEx));
@@ -92,16 +98,15 @@ FSError FSWrapperMergeDirsWithParent::FSReadDirWrapper(FSADirectoryHandle handle
                 }
 
                 OSMemoryBarrier();
-
             } else if (res == FS_ERROR_END_OF_DIR) {
                 // Read the real directory.
                 if (dirHandle->realDirHandle != 0) {
-                    if (clientHandle) {
+                    if (mClientHandle) {
                         FSADirectoryEntry realDirEntry;
                         FSError readDirResult;
                         while (true) {
                             DEBUG_FUNCTION_LINE_VERBOSE("[%s] Call FSReadDir with %08X for parent layer", getName().c_str(), dirHandle->realDirHandle);
-                            readDirResult = FSAReadDir(clientHandle, dirHandle->realDirHandle, &realDirEntry);
+                            readDirResult = FSAReadDir(mClientHandle, dirHandle->realDirHandle, &realDirEntry);
                             if (readDirResult == FS_ERROR_OK) {
                                 bool found       = false;
                                 auto nameDeleted = deletePrefix + realDirEntry.name;
@@ -156,9 +161,9 @@ FSError FSWrapperMergeDirsWithParent::FSCloseDirWrapper(FSADirectoryHandle handl
         }
         auto dirHandle = getDirExFromHandle(handle);
         if (dirHandle->realDirHandle != 0) {
-            if (clientHandle) {
+            if (mClientHandle) {
                 DEBUG_FUNCTION_LINE_VERBOSE("[%s] Call FSCloseDir with %08X for parent layer", getName().c_str(), dirHandle->realDirHandle);
-                auto realResult = FSACloseDir(clientHandle, dirHandle->realDirHandle);
+                auto realResult = FSACloseDir(mClientHandle, dirHandle->realDirHandle);
                 if (realResult == FS_ERROR_OK) {
                     dirHandle->realDirHandle = 0;
                 } else {
@@ -201,10 +206,10 @@ FSError FSWrapperMergeDirsWithParent::FSRewindDirWrapper(FSADirectoryHandle hand
         }
 
         if (dirHandle->realDirHandle != 0) {
-            if (clientHandle) {
+            if (mClientHandle) {
                 DEBUG_FUNCTION_LINE_VERBOSE("[%s] Call FSARewindDir with %08X for parent layer", getName().c_str(), dirHandle->realDirHandle);
                 FSError err;
-                if ((err = FSARewindDir(clientHandle, dirHandle->realDirHandle)) == FS_ERROR_OK) {
+                if ((err = FSARewindDir(mClientHandle, dirHandle->realDirHandle)) == FS_ERROR_OK) {
                     dirHandle->realDirHandle = 0;
                 } else {
                     DEBUG_FUNCTION_LINE_ERR("[%s] Failed to rewind dir for realDirHandle %08X. %s (%d)", getName().c_str(), dirHandle->realDirHandle, FSAGetStatusStr(err), err);
@@ -229,20 +234,20 @@ FSWrapperMergeDirsWithParent::FSWrapperMergeDirsWithParent(const std::string &na
                                                                                              fallbackOnError,
                                                                                              false) {
     FSAInit();
-    this->clientHandle = FSAAddClient(nullptr);
-    if (clientHandle < 0) {
-        DEBUG_FUNCTION_LINE_ERR("[%s] FSAClientHandle failed: %s (%d)", name.c_str(), FSAGetStatusStr(static_cast<FSError>(clientHandle)), clientHandle);
-        clientHandle = 0;
+    this->mClientHandle = FSAAddClient(nullptr);
+    if (mClientHandle < 0) {
+        DEBUG_FUNCTION_LINE_ERR("[%s] FSAClientHandle failed: %s (%d)", name.c_str(), FSAGetStatusStr(static_cast<FSError>(mClientHandle)), mClientHandle);
+        mClientHandle = 0;
     }
 }
 
 FSWrapperMergeDirsWithParent::~FSWrapperMergeDirsWithParent() {
-    if (clientHandle) {
+    if (mClientHandle) {
         FSError res;
-        if ((res = FSADelClient(clientHandle)) != FS_ERROR_OK) {
+        if ((res = FSADelClient(mClientHandle)) != FS_ERROR_OK) {
             DEBUG_FUNCTION_LINE_ERR("[%s] FSADelClient failed: %s (%d)", FSAGetStatusStr(res), res);
         }
-        clientHandle = 0;
+        mClientHandle = 0;
     }
 }
 

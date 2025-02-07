@@ -55,8 +55,8 @@ struct FSShimWrapperMessage {
 
 extern bool gThreadsRunning;
 extern FSIOThreadData gThreadData[3];
-extern std::mutex fsLayerMutex;
-extern std::vector<std::unique_ptr<IFSWrapper>> fsLayers;
+extern std::mutex gFSLayerMutex;
+extern std::vector<std::unique_ptr<IFSWrapper>> gFSLayers;
 
 #define fsaShimPrepareRequestReadFile    ((FSError(*)(FSAShimBuffer * shim, IOSHandle clientHandle, uint8_t * buffer, uint32_t size, uint32_t count, uint32_t pos, FSFileHandle handle, FSAReadFlag readFlags))(0x101C400 + 0x436cc))
 #define fsaShimPrepareRequestWriteFile   ((FSError(*)(FSAShimBuffer * shim, IOSHandle clientHandle, const uint8_t *buffer, uint32_t size, uint32_t count, uint32_t pos, FSFileHandle handle, FSAWriteFlag writeFlags))(0x101C400 + 0x437f4))
