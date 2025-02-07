@@ -23,7 +23,7 @@ FSError FSWrapperMergeDirsWithParent::FSOpenDirWrapper(const char *path,
             DEBUG_FUNCTION_LINE_ERR("[%s] No valid dir handle %08X", getName().c_str(), *handle);
             return FS_ERROR_INVALID_DIRHANDLE;
         }
-        auto dirHandle = getDirExFromHandle(*handle);
+        auto dirHandle = getDirInfoExFromHandle(*handle);
         if (dirHandle != nullptr) {
             dirHandle->readResultCapacity        = 0;
             dirHandle->readResultNumberOfEntries = 0;
@@ -59,7 +59,7 @@ FSError FSWrapperMergeDirsWithParent::FSReadDirWrapper(FSADirectoryHandle handle
                 DEBUG_FUNCTION_LINE_ERR("[%s] No valid dir handle %08X", getName().c_str(), handle);
                 return FS_ERROR_INVALID_DIRHANDLE;
             }
-            auto dirHandle = getDirExFromHandle(handle);
+            auto dirHandle = getDirInfoExFromHandle(handle);
             if (!dirHandle) {
                 DEBUG_FUNCTION_LINE_ERR("[%s] No valid dir handle %08X", getName().c_str(), handle);
                 return FS_ERROR_INVALID_DIRHANDLE;
@@ -159,7 +159,7 @@ FSError FSWrapperMergeDirsWithParent::FSCloseDirWrapper(FSADirectoryHandle handl
             DEBUG_FUNCTION_LINE_ERR("[%s] No valid dir handle %08X", getName().c_str(), handle);
             return FS_ERROR_INVALID_DIRHANDLE;
         }
-        auto dirHandle = getDirExFromHandle(handle);
+        auto dirHandle = getDirInfoExFromHandle(handle);
         if (dirHandle->realDirHandle != 0) {
             if (mClientHandle) {
                 DEBUG_FUNCTION_LINE_VERBOSE("[%s] Call FSCloseDir with %08X for parent layer", getName().c_str(), dirHandle->realDirHandle);
@@ -196,7 +196,7 @@ FSError FSWrapperMergeDirsWithParent::FSRewindDirWrapper(FSADirectoryHandle hand
             DEBUG_FUNCTION_LINE_ERR("[%s] No valid dir handle %08X", getName().c_str(), handle);
             return FS_ERROR_INVALID_DIRHANDLE;
         }
-        auto dirHandle = getDirExFromHandle(handle);
+        auto dirHandle = getDirInfoExFromHandle(handle);
         if (dirHandle->readResult != nullptr) {
             dirHandle->readResultNumberOfEntries = 0;
 #pragma GCC diagnostic push
@@ -248,7 +248,7 @@ FSWrapperMergeDirsWithParent::~FSWrapperMergeDirsWithParent() {
     }
 }
 
-std::shared_ptr<DirInfoEx> FSWrapperMergeDirsWithParent::getDirExFromHandle(FSADirectoryHandle handle) {
+std::shared_ptr<DirInfoEx> FSWrapperMergeDirsWithParent::getDirInfoExFromHandle(FSADirectoryHandle handle) {
     auto dir = std::dynamic_pointer_cast<DirInfoEx>(getDirFromHandle(handle));
 
     if (!dir) {
@@ -258,6 +258,6 @@ std::shared_ptr<DirInfoEx> FSWrapperMergeDirsWithParent::getDirExFromHandle(FSAD
     return dir;
 }
 
-std::shared_ptr<DirInfo> FSWrapperMergeDirsWithParent::getNewDirHandle() {
+std::shared_ptr<DirInfo> FSWrapperMergeDirsWithParent::getNewDirInfoHandle() {
     return make_shared_nothrow<DirInfoEx>();
 }
