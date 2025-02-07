@@ -6,6 +6,8 @@
 #include "utils/StringTools.h"
 #include "utils/logger.h"
 #include "utils/utils.h"
+
+#include <FSWrapperReplaceSingleFile.h>
 #include <content_redirection/redirection.h>
 #include <coreinit/dynload.h>
 #include <mutex>
@@ -142,6 +144,46 @@ ContentRedirectionApiErrorType CRAddFSLayer(CRLayerHandle *handle, const char *l
     return CONTENT_REDIRECTION_API_ERROR_NO_MEMORY;
 }
 
+ContentRedirectionApiErrorType CRAddFSLayerEx(CRLayerHandle *handle, const char *layerName, const char *targetPath, const char *replacementPath, const FSLayerTypeEx layerType) {
+    if (!handle || layerName == nullptr || replacementPath == nullptr || targetPath == nullptr) {
+        DEBUG_FUNCTION_LINE_WARN("CONTENT_REDIRECTION_API_ERROR_INVALID_ARG");
+        return CONTENT_REDIRECTION_API_ERROR_INVALID_ARG;
+    }
+    std::unique_ptr<IFSWrapper> ptr;
+    switch (layerType) {
+        case FS_LAYER_TYPE_EX_REPLACE_DIRECTORY: {
+            DEBUG_FUNCTION_LINE_INFO("[AddFSLayerEx] Redirecting \"%s\" to \"%s\", mode: \"replace\"", targetPath, replacementPath);
+            ptr = make_unique_nothrow<FSWrapper>(layerName, targetPath, replacementPath, false, false);
+            break;
+        }
+        case FS_LAYER_TYPE_EX_MERGE_DIRECTORY: {
+            DEBUG_FUNCTION_LINE_INFO("[AddFSLayerEx] Redirecting \"%s\" to \"%s\", mode: \"merge\"", targetPath, replacementPath);
+            ptr = make_unique_nothrow<FSWrapperMergeDirsWithParent>(layerName, targetPath, replacementPath, true);
+            break;
+        }
+        case FS_LAYER_TYPE_EX_REPLACE_FILE: {
+            DEBUG_FUNCTION_LINE_INFO("[AddFSLayerEx] Redirecting file \"%s\" to \"%s\"", targetPath, replacementPath);
+            ptr = make_unique_nothrow<FSWrapperReplaceSingleFile>(layerName, targetPath, replacementPath, true);
+            break;
+        }
+        default: {
+            DEBUG_FUNCTION_LINE_ERR("[AddFSLayerEx] CONTENT_REDIRECTION_API_ERROR_UNKNOWN_LAYER_DIR_TYPE: %s %s %d", layerName, replacementPath, layerType);
+            return CONTENT_REDIRECTION_API_ERROR_UNKNOWN_FS_LAYER_TYPE;
+        }
+    }
+
+    if (ptr) {
+        DEBUG_FUNCTION_LINE_VERBOSE("[AddFSLayerEx] Added new layer (%s). Target path: %s Replacement dir: %s Type:%d", layerName, targetPath, replacementPath, layerType);
+        std::lock_guard lock(gFSLayerMutex);
+        *handle = ptr->getHandle();
+        gFSLayers.emplace_back(std::move(ptr));
+        return CONTENT_REDIRECTION_API_ERROR_NONE;
+    }
+    DEBUG_FUNCTION_LINE_ERR("[AddFSLayerEx] Failed to allocate memory");
+    return CONTENT_REDIRECTION_API_ERROR_NO_MEMORY;
+}
+
+
 ContentRedirectionApiErrorType CRRemoveFSLayer(CRLayerHandle handle) {
     if (!remove_locked_first_if(gFSLayerMutex, gFSLayers, [handle](auto &cur) { return (CRLayerHandle) cur->getHandle() == handle; })) {
         DEBUG_FUNCTION_LINE_WARN("CONTENT_REDIRECTION_API_ERROR_LAYER_NOT_FOUND for handle %08X", handle);
@@ -167,7 +209,7 @@ ContentRedirectionApiErrorType CRGetVersion(ContentRedirectionVersion *outVersio
     if (outVersion == nullptr) {
         return CONTENT_REDIRECTION_API_ERROR_INVALID_ARG;
     }
-    *outVersion = 1;
+    *outVersion = 2;
     return CONTENT_REDIRECTION_API_ERROR_NONE;
 }
 
@@ -180,6 +222,7 @@ int CRRemoveDevice(const char *name) {
 }
 
 WUMS_EXPORT_FUNCTION(CRGetVersion);
+WUMS_EXPORT_FUNCTION(CRAddFSLayerEx);
 WUMS_EXPORT_FUNCTION(CRAddFSLayer);
 WUMS_EXPORT_FUNCTION(CRRemoveFSLayer);
 WUMS_EXPORT_FUNCTION(CRSetActive);

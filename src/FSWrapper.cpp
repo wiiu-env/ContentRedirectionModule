@@ -42,11 +42,7 @@ FSError FSWrapper::FSOpenDirWrapper(const char *path, FSDirectoryHandle *handle)
 
             dirHandle->path[0] = '\0';
             strncat(dirHandle->path, newPath.c_str(), sizeof(dirHandle->path) - 1);
-            {
-                std::lock_guard<std::mutex> lock(openDirsMutex);
-                openDirs.push_back(dirHandle);
-                OSMemoryBarrier();
-            }
+            addDirHandle(dirHandle);
         } else {
             auto err = errno;
             if (err == ENOENT) {
@@ -741,6 +737,12 @@ std::shared_ptr<DirInfoBase> FSWrapper::getDirFromHandle(const FSDirectoryHandle
     DEBUG_FUNCTION_LINE_ERR("[%s] DirInfo for handle %08X was not found. isValidDirHandle check missing?", getName().c_str(), handle);
     OSFatal("ContentRedirectionModule: Failed to find dir handle");
     return nullptr;
+}
+
+void FSWrapper::addDirHandle(const std::shared_ptr<DirInfoBase> &dirHandle) {
+    std::lock_guard lock(openDirsMutex);
+    openDirs.push_back(dirHandle);
+    OSMemoryBarrier();
 }
 
 void FSWrapper::deleteDirHandle(FSDirectoryHandle handle) {
