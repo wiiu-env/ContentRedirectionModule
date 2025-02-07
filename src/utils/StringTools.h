@@ -13,12 +13,12 @@ std::string string_format(const std::string &format, Args... args) {
     return std::string(buf.get(), buf.get() + size - 1); // We don't want the '\0' inside
 }
 
-static inline bool starts_with_case_insensitive(std::string_view str, std::string_view prefix) {
+static inline bool starts_with_case_insensitive(const std::string_view str, const std::string_view prefix) {
     if (str.size() < prefix.size())
         return false;
 
     return std::equal(prefix.begin(), prefix.end(), str.begin(),
-                      [](char a, char b) {
+                      [](const char a, const char b) {
                           return std::tolower(a) == std::tolower(b);
                       });
 }

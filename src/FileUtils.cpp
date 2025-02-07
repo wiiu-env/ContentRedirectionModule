@@ -11,39 +11,41 @@
 #include <map>
 #include <unistd.h>
 
-std::mutex workingDirMutex;
-std::map<FSAClientHandle, std::string> workingDirs;
+namespace {
+    std::mutex sWorkingDirMutex;
+    std::map<FSAClientHandle, std::string> sWorkingDirs;
+} // namespace
 
-std::mutex fsLayerMutex;
-std::vector<std::unique_ptr<IFSWrapper>> fsLayers;
+std::mutex gFSLayerMutex;
+std::vector<std::unique_ptr<IFSWrapper>> gFSLayers;
 
-std::string getFullPathGeneric(FSAClientHandle client, const char *path, std::mutex &mutex, std::map<FSAClientHandle, std::string> &map) {
-    std::lock_guard<std::mutex> workingDirLock(mutex);
+std::string getFullPathGeneric(const FSAClientHandle client, const char *path, std::mutex &mutex, const std::map<FSAClientHandle, std::string> &map) {
+    std::lock_guard workingDirLock(mutex);
 
     std::string res;
 
     if (path[0] != '/' && path[0] != '\\') {
         if (map.count(client) == 0) {
             DEBUG_FUNCTION_LINE_WARN("No working dir found for client %08X, fallback to \"/\"", client);
-            workingDirs[client] = "/";
+            sWorkingDirs[client] = "/";
         }
         res = string_format("%s%s", map.at(client).c_str(), path);
     } else {
         res = path;
     }
 
-    std::replace(res.begin(), res.end(), '\\', '/');
+    std::ranges::replace(res, '\\', '/');
 
     return res;
 }
 
-void setWorkingDirGeneric(FSAClientHandle client, const char *path, std::mutex &mutex, std::map<FSAClientHandle, std::string> &map) {
+void setWorkingDirGeneric(const FSAClientHandle client, const char *path, std::mutex &mutex, std::map<FSAClientHandle, std::string> &map) {
     if (!path) {
         DEBUG_FUNCTION_LINE_WARN("Path was NULL");
         return;
     }
 
-    std::lock_guard<std::mutex> workingDirLock(mutex);
+    std::lock_guard workingDirLock(mutex);
 
     std::string cwd(path);
     if (cwd.empty() || cwd.back() != '/') {
@@ -54,22 +56,22 @@ void setWorkingDirGeneric(FSAClientHandle client, const char *path, std::mutex &
 }
 
 
-std::string getFullPath(FSAClientHandle pClient, const char *path) {
-    return getFullPathGeneric(pClient, path, workingDirMutex, workingDirs);
+std::string getFullPath(const FSAClientHandle pClient, const char *path) {
+    return getFullPathGeneric(pClient, path, sWorkingDirMutex, sWorkingDirs);
 }
 
-void setWorkingDir(FSAClientHandle client, const char *path) {
-    setWorkingDirGeneric(client, path, workingDirMutex, workingDirs);
+void setWorkingDir(const FSAClientHandle client, const char *path) {
+    setWorkingDirGeneric(client, path, sWorkingDirMutex, sWorkingDirs);
 }
 
 void clearFSLayer() {
     {
-        std::lock_guard<std::mutex> workingDirLock(workingDirMutex);
-        workingDirs.clear();
+        std::lock_guard workingDirLock(sWorkingDirMutex);
+        sWorkingDirs.clear();
     }
     {
-        std::lock_guard<std::mutex> layerLock(fsLayerMutex);
-        fsLayers.clear();
+        std::lock_guard layerLock(gFSLayerMutex);
+        gFSLayers.clear();
     }
 }
 
@@ -93,11 +95,11 @@ bool sendMessageToThread(FSShimWrapperMessage *param) {
 }
 
 FSError doForLayer(FSShimWrapper *param) {
-    std::lock_guard<std::mutex> lock(fsLayerMutex);
-    if (!fsLayers.empty()) {
-        uint32_t startIndex = fsLayers.size();
-        for (uint32_t i = fsLayers.size(); i > 0; i--) {
-            if ((uint32_t) fsLayers[i - 1]->getLayerId() == param->shim->clientHandle) {
+    std::lock_guard lock(gFSLayerMutex);
+    if (!gFSLayers.empty()) {
+        uint32_t startIndex = gFSLayers.size();
+        for (uint32_t i = gFSLayers.size(); i > 0; i--) {
+            if (gFSLayers[i - 1]->getLayerId() == param->shim->clientHandle) {
                 startIndex = i - 1;
                 break;
             }
@@ -105,7 +107,7 @@ FSError doForLayer(FSShimWrapper *param) {
 
         if (startIndex > 0) {
             for (uint32_t i = startIndex; i > 0; i--) {
-                auto &layer = fsLayers[i - 1];
+                auto &layer = gFSLayers[i - 1];
                 if (!layer->isActive()) {
                     continue;
                 }

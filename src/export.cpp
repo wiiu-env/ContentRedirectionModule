@@ -15,6 +15,7 @@
 struct AOCTitle {
     WUT_UNKNOWN_BYTES(0x68);
 };
+
 WUT_CHECK_SIZE(AOCTitle, 0x68);
 
 bool getAOCPath(std::string &outStr) {
@@ -90,7 +91,7 @@ end:
     return result;
 }
 
-ContentRedirectionApiErrorType CRAddFSLayer(CRLayerHandle *handle, const char *layerName, const char *replacementDir, FSLayerType layerType) {
+ContentRedirectionApiErrorType CRAddFSLayer(CRLayerHandle *handle, const char *layerName, const char *replacementDir, const FSLayerType layerType) {
     if (!handle || layerName == nullptr || replacementDir == nullptr) {
         DEBUG_FUNCTION_LINE_WARN("CONTENT_REDIRECTION_API_ERROR_INVALID_ARG");
         return CONTENT_REDIRECTION_API_ERROR_INVALID_ARG;
@@ -132,9 +133,9 @@ ContentRedirectionApiErrorType CRAddFSLayer(CRLayerHandle *handle, const char *l
     }
     if (ptr) {
         DEBUG_FUNCTION_LINE_VERBOSE("Added new layer (%s). Replacement dir: %s Type:%d", layerName, replacementDir, layerType);
-        std::lock_guard<std::mutex> lock(fsLayerMutex);
+        std::lock_guard lock(gFSLayerMutex);
         *handle = (CRLayerHandle) ptr->getHandle();
-        fsLayers.push_back(std::move(ptr));
+        gFSLayers.push_back(std::move(ptr));
         return CONTENT_REDIRECTION_API_ERROR_NONE;
     }
     DEBUG_FUNCTION_LINE_ERR("Failed to allocate memory");
@@ -142,7 +143,7 @@ ContentRedirectionApiErrorType CRAddFSLayer(CRLayerHandle *handle, const char *l
 }
 
 ContentRedirectionApiErrorType CRRemoveFSLayer(CRLayerHandle handle) {
-    if (!remove_locked_first_if(fsLayerMutex, fsLayers, [handle](auto &cur) { return (CRLayerHandle) cur->getHandle() == handle; })) {
+    if (!remove_locked_first_if(gFSLayerMutex, gFSLayers, [handle](auto &cur) { return (CRLayerHandle) cur->getHandle() == handle; })) {
         DEBUG_FUNCTION_LINE_WARN("CONTENT_REDIRECTION_API_ERROR_LAYER_NOT_FOUND for handle %08X", handle);
         return CONTENT_REDIRECTION_API_ERROR_LAYER_NOT_FOUND;
     }
@@ -150,8 +151,8 @@ ContentRedirectionApiErrorType CRRemoveFSLayer(CRLayerHandle handle) {
 }
 
 ContentRedirectionApiErrorType CRSetActive(CRLayerHandle handle, bool active) {
-    std::lock_guard<std::mutex> lock(fsLayerMutex);
-    for (auto &cur : fsLayers) {
+    std::lock_guard lock(gFSLayerMutex);
+    for (auto &cur : gFSLayers) {
         if ((CRLayerHandle) cur->getHandle() == handle) {
             cur->setActive(active);
             return CONTENT_REDIRECTION_API_ERROR_NONE;

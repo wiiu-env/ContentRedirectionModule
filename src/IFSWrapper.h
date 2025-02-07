@@ -1,6 +1,7 @@
 #pragma once
 #include <coreinit/filesystem_fsa.h>
-#include <functional>
+#include <memory>
+
 #include <string>
 
 #define FS_ERROR_EXTRA_MASK          0xFFF00000
@@ -52,7 +53,6 @@ public:
                                      FSAStat *stats) {
         return FS_ERROR_FORCE_PARENT_LAYER;
     }
-
 
     virtual FSError FSGetStatFileWrapper(FSAFileHandle handle,
                                          FSAStat *stats) {
@@ -151,11 +151,17 @@ public:
     virtual uint32_t getLayerId() = 0;
 
     virtual uint32_t getHandle() {
-        return (uint32_t) this;
+        return reinterpret_cast<uint32_t>(this);
+    }
+
+    IFSWrapper() {
+        // Abuse this as a stable handle that references itself and survives std::move
+        *mHandle = reinterpret_cast<uint32_t>(mHandle.get());
     }
 
 private:
-    bool pIsActive = true;
+    bool pIsActive                    = true;
+    std::unique_ptr<uint32_t> mHandle = std::make_unique<uint32_t>();
 
 protected:
     bool pFallbackOnError = false;
