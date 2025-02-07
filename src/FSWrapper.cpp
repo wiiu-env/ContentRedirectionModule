@@ -71,7 +71,7 @@ FSError FSWrapper::FSOpenDirWrapper(const char *path, FSDirectoryHandle *handle)
     return result;
 }
 
-FSError FSWrapper::FSReadDirWrapper(FSDirectoryHandle handle, FSDirectoryEntry *entry) {
+FSError FSWrapper::FSReadDirWrapper(const FSDirectoryHandle handle, FSDirectoryEntry *entry) {
     if (!isValidDirHandle(handle)) {
         return FS_ERROR_FORCE_PARENT_LAYER;
     }
@@ -633,7 +633,7 @@ FSError FSWrapper::FSRenameWrapper(const char *oldPath, const char *newPath) {
     return FS_ERROR_OK;
 }
 
-FSError FSWrapper::FSFlushFileWrapper(FSFileHandle handle) {
+FSError FSWrapper::FSFlushFileWrapper(const FSFileHandle handle) {
     if (!isValidFileHandle(handle)) {
         return FS_ERROR_FORCE_PARENT_LAYER;
     }
@@ -642,8 +642,8 @@ FSError FSWrapper::FSFlushFileWrapper(FSFileHandle handle) {
         return FS_ERROR_ACCESS_ERROR;
     }
 
-    auto fileHandle = getFileFromHandle(handle);
-    int real_fd     = fileHandle->fd;
+    const auto fileHandle = getFileFromHandle(handle);
+    const int real_fd     = fileHandle->fd;
 
     DEBUG_FUNCTION_LINE_VERBOSE("[%s] fsync fd %08X (FSFileHandle %08X)", real_fd, handle);
     FSError result = FS_ERROR_OK;
@@ -685,7 +685,7 @@ std::string FSWrapper::GetNewPath(const std::string_view &path) {
     auto subStr = path.substr(this->pPathToReplace.length());
     auto res    = string_format("%s%.*s", this->pReplacePathWith.c_str(), int(subStr.length()), subStr.data());
 
-    std::replace(res.begin(), res.end(), '\\', '/');
+    std::ranges::replace(res, '\\', '/');
 
     uint32_t length = res.size();
 
@@ -703,14 +703,15 @@ std::string FSWrapper::GetNewPath(const std::string_view &path) {
 }
 
 bool FSWrapper::isValidFileHandle(FSFileHandle handle) {
-    std::lock_guard<std::mutex> lock(openFilesMutex);
+    std::lock_guard lock(openFilesMutex);
     return std::ranges::any_of(openFiles, [handle](auto &cur) { return cur->handle == handle; });
 }
 
 bool FSWrapper::isValidDirHandle(FSDirectoryHandle handle) {
-    std::lock_guard<std::mutex> lock(openDirsMutex);
+    std::lock_guard lock(openDirsMutex);
     return std::ranges::any_of(openDirs, [handle](auto &cur) { return cur->handle == handle; });
 }
+
 
 std::shared_ptr<FileInfo> FSWrapper::getNewFileHandle() {
     return make_shared_nothrow<FileInfo>();
@@ -732,7 +733,7 @@ std::shared_ptr<FileInfo> FSWrapper::getFileFromHandle(const FSFileHandle handle
     return nullptr;
 }
 
-std::shared_ptr<DirInfo> FSWrapper::getDirFromHandle(FSDirectoryHandle handle) {
+std::shared_ptr<DirInfoBase> FSWrapper::getDirFromHandle(const FSDirectoryHandle handle) {
     std::lock_guard lock(openDirsMutex);
     for (auto &dir : openDirs) {
         if (dir->handle == handle) {
