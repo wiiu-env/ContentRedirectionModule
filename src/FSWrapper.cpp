@@ -676,14 +676,13 @@ bool FSWrapper::IsFileModeAllowed(const char *mode) {
     return false;
 }
 
-
 bool FSWrapper::IsPathToReplace(const std::string_view &path) {
     return starts_with_case_insensitive(path, pPathToReplace);
 }
 
-std::string FSWrapper::GetNewPath(const std::string_view &path) {
-    auto subStr = path.substr(this->pPathToReplace.length());
-    auto res    = string_format("%s%.*s", this->pReplacePathWith.c_str(), int(subStr.length()), subStr.data());
+std::string FSWrapper::GetNewPath(const std::string_view &path) const {
+    auto res = std::string(path);
+    SafeReplaceInString(res, this->pPathToReplace, this->pReplacePathWith);
 
     std::ranges::replace(res, '\\', '/');
 

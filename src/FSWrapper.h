@@ -106,7 +106,7 @@ protected:
 
     virtual bool IsPathToReplace(const std::string_view &path);
 
-    std::string GetNewPath(const std::string_view &path);
+    [[nodiscard]] virtual std::string GetNewPath(const std::string_view &path) const;
 
     std::shared_ptr<DirInfo> getDirFromHandle(FSDirectoryHandle handle);
     std::shared_ptr<FileInfo> getFileFromHandle(FSFileHandle handle);

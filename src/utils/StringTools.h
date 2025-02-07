@@ -2,7 +2,6 @@
 
 #include <memory>
 #include <string>
-#include <vector>
 
 template<typename... Args>
 std::string string_format(const std::string &format, Args... args) {
@@ -12,6 +11,8 @@ std::string string_format(const std::string &format, Args... args) {
     std::snprintf(buf.get(), size, format.c_str(), args...);
     return std::string(buf.get(), buf.get() + size - 1); // We don't want the '\0' inside
 }
+
+void SafeReplaceInString(std::string &subject, std::string search, const std::string &replace);
 
 static inline bool starts_with_case_insensitive(const std::string_view str, const std::string_view prefix) {
     if (str.size() < prefix.size())
