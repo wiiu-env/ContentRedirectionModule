@@ -208,10 +208,7 @@ FSError FSWrapperMergeDirsWithParent::FSRewindDirWrapper(FSADirectoryHandle hand
         if (dirHandle->realDirHandle != 0) {
             if (mClientHandle) {
                 DEBUG_FUNCTION_LINE_VERBOSE("[%s] Call FSARewindDir with %08X for parent layer", getName().c_str(), dirHandle->realDirHandle);
-                FSError err;
-                if ((err = FSARewindDir(mClientHandle, dirHandle->realDirHandle)) == FS_ERROR_OK) {
-                    dirHandle->realDirHandle = 0;
-                } else {
+                if (FSError err = FSARewindDir(mClientHandle, dirHandle->realDirHandle); err != FS_ERROR_OK) {
                     DEBUG_FUNCTION_LINE_ERR("[%s] Failed to rewind dir for realDirHandle %08X. %s (%d)", getName().c_str(), dirHandle->realDirHandle, FSAGetStatusStr(err), err);
                 }
             } else {
