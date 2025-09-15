@@ -11,25 +11,17 @@
 #include <map>
 #include <unistd.h>
 
-namespace {
-    std::mutex sWorkingDirMutex;
-    std::map<FSAClientHandle, std::string> sWorkingDirs;
-} // namespace
-
-std::mutex gFSLayerMutex;
-std::vector<std::unique_ptr<IFSWrapper>> gFSLayers;
-
-std::string getFullPathGeneric(const FSAClientHandle client, const char *path, std::mutex &mutex, const std::map<FSAClientHandle, std::string> &map) {
-    std::lock_guard workingDirLock(mutex);
+std::string getFullPathGeneric(const std::shared_ptr<LayerInfo> &layerInfo, const FSAClientHandle client, const char *path) {
+    std::lock_guard workingDirLock(layerInfo->mutex);
 
     std::string res;
 
     if (path[0] != '/' && path[0] != '\\') {
-        if (map.count(client) == 0) {
+        if (!layerInfo->workingDirs.contains(client)) {
             DEBUG_FUNCTION_LINE_WARN("No working dir found for client %08X, fallback to \"/\"", client);
-            sWorkingDirs[client] = "/";
+            layerInfo->workingDirs[client] = "/";
         }
-        res = string_format("%s%s", map.at(client).c_str(), path);
+        res = string_format("%s%s", layerInfo->workingDirs.at(client).c_str(), path);
     } else {
         res = path;
     }
@@ -56,32 +48,38 @@ void setWorkingDirGeneric(const FSAClientHandle client, const char *path, std::m
 }
 
 
-std::string getFullPath(const FSAClientHandle pClient, const char *path) {
-    return getFullPathGeneric(pClient, path, sWorkingDirMutex, sWorkingDirs);
+std::string getFullPath(std::shared_ptr<LayerInfo> &layerInfo, const FSAClientHandle pClient, const char *path) {
+    return getFullPathGeneric(layerInfo, pClient, path);
 }
 
-void setWorkingDir(const FSAClientHandle client, const char *path) {
-    setWorkingDirGeneric(client, path, sWorkingDirMutex, sWorkingDirs);
+void setWorkingDir(const std::shared_ptr<LayerInfo> &layerInfo, const FSAClientHandle client, const char *path) {
+    setWorkingDirGeneric(client, path, layerInfo->workingDirMutex, layerInfo->workingDirs);
 }
 
-void clearFSLayer() {
+void clearFSLayer(const std::shared_ptr<LayerInfo> &layerInfo) {
     {
-        std::lock_guard workingDirLock(sWorkingDirMutex);
-        sWorkingDirs.clear();
+        std::lock_guard workingDirLock(layerInfo->workingDirMutex);
+        layerInfo->workingDirs.clear();
     }
     {
-        std::lock_guard layerLock(gFSLayerMutex);
-        gFSLayers.clear();
+        std::lock_guard layerLock(layerInfo->mutex);
+        layerInfo->layers.clear();
     }
 }
 
-bool sendMessageToThread(FSShimWrapperMessage *param) {
-    auto *curThread = &gThreadData[OSGetCoreId()];
+void clearFSLayers() {
+    for (auto &[upid, layerInfo] : sLayerInfoForUPID) {
+        clearFSLayer(layerInfo);
+    }
+}
+
+bool sendMessageToThread(const std::shared_ptr<LayerInfo> &layerInfo, FSShimWrapperMessage *param) {
+    auto *curThread = &layerInfo->threadData[OSGetCoreId()];
     if (curThread->setup) {
         OSMessage send;
-        send.message = param;
-        send.args[0] = FS_IO_QUEUE_COMMAND_PROCESS_FS_COMMAND;
-        auto res     = OSSendMessage(&curThread->queue, &send, OS_MESSAGE_FLAGS_NONE);
+        send.message   = param;
+        send.args[0]   = FS_IO_QUEUE_COMMAND_PROCESS_FS_COMMAND;
+        const auto res = OSSendMessage(&curThread->queue, &send, OS_MESSAGE_FLAGS_NONE);
         if (!res) {
             DEBUG_FUNCTION_LINE_ERR("Message Queue for ContentRedirection IO Thread is full");
             OSFatal("ContentRedirectionModule: Message Queue for ContentRedirection IO Thread is full");
@@ -94,12 +92,20 @@ bool sendMessageToThread(FSShimWrapperMessage *param) {
     return false;
 }
 
+std::map<uint32_t, std::shared_ptr<LayerInfo>> sLayerInfoForUPID;
+
 FSError doForLayer(FSShimWrapper *param) {
-    std::lock_guard lock(gFSLayerMutex);
-    if (!gFSLayers.empty()) {
-        uint32_t startIndex = gFSLayers.size();
-        for (uint32_t i = gFSLayers.size(); i > 0; i--) {
-            if (gFSLayers[i - 1]->getLayerId() == param->shim->clientHandle) {
+    if (!sLayerInfoForUPID.contains(param->upid)) {
+        DEBUG_FUNCTION_LINE_ERR("INVALID UPID IN SHIMWRAPPER: %d", param->upid);
+        OSFatal("Invalid UPID");
+    }
+    auto &layerInfo = sLayerInfoForUPID[param->upid];
+
+    std::lock_guard lock(layerInfo->mutex);
+    if (!layerInfo->layers.empty()) {
+        uint32_t startIndex = layerInfo->layers.size();
+        for (uint32_t i = layerInfo->layers.size(); i > 0; i--) {
+            if (layerInfo->layers[i - 1]->getLayerId() == param->shim->clientHandle) {
                 startIndex = i - 1;
                 break;
             }
@@ -107,7 +113,7 @@ FSError doForLayer(FSShimWrapper *param) {
 
         if (startIndex > 0) {
             for (uint32_t i = startIndex; i > 0; i--) {
-                auto &layer = gFSLayers[i - 1];
+                auto &layer = layerInfo->layers[i - 1];
                 if (!layer->isActive()) {
                     continue;
                 }
@@ -118,7 +124,7 @@ FSError doForLayer(FSShimWrapper *param) {
                 switch (command) {
                     case FSA_COMMAND_OPEN_DIR: {
                         auto *request = &param->shim->request.openDir;
-                        auto fullPath = getFullPath((FSAClientHandle) param->shim->clientHandle, request->path);
+                        auto fullPath = getFullPath(layerInfo, (FSAClientHandle) param->shim->clientHandle, request->path);
                         DEBUG_FUNCTION_LINE_VERBOSE("[%s] OpenDir: %s (full path: %s)", layer->getName().c_str(), request->path, fullPath.c_str());
                         // Hacky solution:
                         auto *hackyBuffer = (uint32_t *) &param->shim->response;
@@ -156,14 +162,14 @@ FSError doForLayer(FSShimWrapper *param) {
                     }
                     case FSA_COMMAND_MAKE_DIR: {
                         auto *request = &param->shim->request.makeDir;
-                        auto fullPath = getFullPath((FSAClientHandle) param->shim->clientHandle, request->path);
+                        auto fullPath = getFullPath(layerInfo, (FSAClientHandle) param->shim->clientHandle, request->path);
                         DEBUG_FUNCTION_LINE_VERBOSE("[%s] MakeDir: %s (full path: %s)", layer->getName().c_str(), request->path, fullPath.c_str());
                         layerResult = layer->FSMakeDirWrapper(fullPath.c_str());
                         break;
                     }
                     case FSA_COMMAND_OPEN_FILE: {
                         auto *request = &param->shim->request.openFile;
-                        auto fullPath = getFullPath((FSAClientHandle) param->shim->clientHandle, request->path);
+                        auto fullPath = getFullPath(layerInfo, (FSAClientHandle) param->shim->clientHandle, request->path);
                         // Hacky solution:
                         auto *hackyBuffer = (uint32_t *) &param->shim->response;
                         auto *handlePtr   = (FSFileHandle *) hackyBuffer[1];
@@ -187,7 +193,7 @@ FSError doForLayer(FSShimWrapper *param) {
                     case FSA_COMMAND_GET_INFO_BY_QUERY: {
                         auto *request = &param->shim->request.getInfoByQuery;
                         if (request->type == FSA_QUERY_INFO_STAT) {
-                            auto fullPath = getFullPath((FSAClientHandle) param->shim->clientHandle, request->path);
+                            auto fullPath = getFullPath(layerInfo, (FSAClientHandle) param->shim->clientHandle, request->path);
                             DEBUG_FUNCTION_LINE_VERBOSE("[%s] GetStat: %s (full path: %s)", layer->getName().c_str(), request->path, fullPath.c_str());
                             // Hacky solution:
                             auto *hackyBuffer = (uint32_t *) &param->shim->response;
@@ -206,19 +212,17 @@ FSError doForLayer(FSShimWrapper *param) {
                         break;
                     }
                     case FSA_COMMAND_READ_FILE: {
-
                         auto *request = &param->shim->request.readFile;
                         if (request->readFlags == FSA_READ_FLAG_NONE) {
-                            DEBUG_FUNCTION_LINE_VERBOSE("[%s] ReadFile: buffer %08X size %08X count %08X handle %08X", layer->getName().c_str(), request->buffer, request->size, request->count, request->handle);
+                            DEBUG_FUNCTION_LINE_VERBOSE("[%s] ReadFile: buffer %p size %08X count %08X handle %08X", layer->getName().c_str(), request->buffer, request->size, request->count, request->handle);
                             layerResult = layer->FSReadFileWrapper(request->buffer, request->size, request->count, request->handle, 0);
                         } else if (request->readFlags == FSA_READ_FLAG_READ_WITH_POS) {
-                            DEBUG_FUNCTION_LINE_VERBOSE("[%s] ReadFileWithPos: buffer %08X size %08X count %08X pos %08X handle %08X", layer->getName().c_str(), request->buffer, request->size, request->count, request->pos, request->handle);
+                            DEBUG_FUNCTION_LINE_VERBOSE("[%s] ReadFileWithPos: buffer %p size %08X count %08X pos %08X handle %08X", layer->getName().c_str(), request->buffer, request->size, request->count, request->pos, request->handle);
                             layerResult = layer->FSReadFileWithPosWrapper(request->buffer, request->size, request->count, request->pos, request->handle, 0);
                         }
                         break;
                     }
                     case FSA_COMMAND_SET_POS_FILE: {
-
                         auto *request = &param->shim->request.setPosFile;
                         DEBUG_FUNCTION_LINE_VERBOSE("[%s] SetPosFile: %08X %08X", layer->getName().c_str(), request->handle, request->pos);
                         layerResult = layer->FSSetPosFileWrapper(request->handle, request->pos);
@@ -240,35 +244,33 @@ FSError doForLayer(FSShimWrapper *param) {
                         break;
                     }
                     case FSA_COMMAND_TRUNCATE_FILE: {
-
                         auto *request = &param->shim->request.truncateFile;
                         DEBUG_FUNCTION_LINE_VERBOSE("[%s] TruncateFile: %08X", layer->getName().c_str(), request->handle);
                         layerResult = layer->FSTruncateFileWrapper(request->handle);
                         break;
                     }
                     case FSA_COMMAND_WRITE_FILE: {
-
                         auto *request = &param->shim->request.writeFile;
                         if (request->writeFlags == FSA_WRITE_FLAG_NONE) {
-                            DEBUG_FUNCTION_LINE_VERBOSE("[%s] WriteFile: buffer %08X size %08X count %08X handle %08X", layer->getName().c_str(), request->buffer, request->size, request->count, request->handle);
+                            DEBUG_FUNCTION_LINE_VERBOSE("[%s] WriteFile: buffer %p size %08X count %08X handle %08X", layer->getName().c_str(), request->buffer, request->size, request->count, request->handle);
                             layerResult = layer->FSWriteFileWrapper(request->buffer, request->size, request->count, request->handle, 0);
                         } else if (request->writeFlags == FSA_WRITE_FLAG_READ_WITH_POS) {
-                            DEBUG_FUNCTION_LINE_VERBOSE("[%s] WriteFileWithPos: buffer %08X size %08X count %08X pos %08X handle %08X", layer->getName().c_str(), request->buffer, request->size, request->count, request->pos, request->handle);
+                            DEBUG_FUNCTION_LINE_VERBOSE("[%s] WriteFileWithPos: buffer %p size %08X count %08X pos %08X handle %08X", layer->getName().c_str(), request->buffer, request->size, request->count, request->pos, request->handle);
                             layerResult = layer->FSWriteFileWithPosWrapper(request->buffer, request->size, request->count, request->pos, request->handle, 0);
                         }
                         break;
                     }
                     case FSA_COMMAND_REMOVE: {
                         auto *request = &param->shim->request.remove;
-                        auto fullPath = getFullPath((FSAClientHandle) param->shim->clientHandle, request->path);
+                        auto fullPath = getFullPath(layerInfo, (FSAClientHandle) param->shim->clientHandle, request->path);
                         DEBUG_FUNCTION_LINE_VERBOSE("[%s] Remove: %s (full path: %s)", layer->getName().c_str(), request->path, fullPath.c_str());
                         layerResult = layer->FSRemoveWrapper(fullPath.c_str());
                         break;
                     }
                     case FSA_COMMAND_RENAME: {
                         auto *request    = &param->shim->request.rename;
-                        auto fullOldPath = getFullPath((FSAClientHandle) param->shim->clientHandle, request->oldPath);
-                        auto fullNewPath = getFullPath((FSAClientHandle) param->shim->clientHandle, request->newPath);
+                        auto fullOldPath = getFullPath(layerInfo, (FSAClientHandle) param->shim->clientHandle, request->oldPath);
+                        auto fullNewPath = getFullPath(layerInfo, (FSAClientHandle) param->shim->clientHandle, request->newPath);
                         DEBUG_FUNCTION_LINE_VERBOSE("[%s] Rename: %s -> %s (full path: %s -> %s)", layer->getName().c_str(), request->oldPath, request->newPath, fullOldPath.c_str(), fullNewPath.c_str());
                         layerResult = layer->FSRenameWrapper(fullOldPath.c_str(), fullNewPath.c_str());
                         break;
@@ -282,7 +284,7 @@ FSError doForLayer(FSShimWrapper *param) {
                     case FSA_COMMAND_CHANGE_DIR: {
                         auto *request = &param->shim->request.changeDir;
                         DEBUG_FUNCTION_LINE_VERBOSE("[%s] ChangeDir: %s", layer->getName().c_str(), request->path);
-                        setWorkingDir((FSAClientHandle) param->shim->clientHandle, request->path);
+                        setWorkingDir(layerInfo, (FSAClientHandle) param->shim->clientHandle, request->path);
                         // We still want to call the original function.
                         layerResult = FS_ERROR_FORCE_PARENT_LAYER;
                         break;
@@ -460,9 +462,6 @@ int64_t writeFromBuffer(int32_t handle, const void *buffer, size_t size, size_t 
     return totalSize;
 }
 
-FSIOThreadData gThreadData[3];
-bool gThreadsRunning = false;
-
 static int32_t fsIOthreadCallback([[maybe_unused]] int argc, const char **argv) {
     auto *magic = ((FSIOThreadData *) argv);
 
@@ -514,10 +513,24 @@ static int32_t fsIOthreadCallback([[maybe_unused]] int argc, const char **argv) 
 void startFSIOThreads() {
     int32_t threadAttributes[] = {OS_THREAD_ATTRIB_AFFINITY_CPU0, OS_THREAD_ATTRIB_AFFINITY_CPU1, OS_THREAD_ATTRIB_AFFINITY_CPU2};
     auto stackSize             = 16 * 1024;
+    auto upid                  = OSGetUPID();
+    if (!sLayerInfoForUPID.contains(upid)) {
+        DEBUG_FUNCTION_LINE_ERR("Tried to start threads for invalid UPID %d", upid);
+        OSFatal("Tried to start threads for invalid UPID.");
+    }
+
+    auto &layerInfo = sLayerInfoForUPID[upid];
+    if (layerInfo->threadsRunning) {
+        return;
+    }
 
     int coreId = 0;
     for (int core : threadAttributes) {
-        auto *threadData = &gThreadData[coreId];
+        if (upid != 2 && upid != 15 && core == OS_THREAD_ATTRIB_AFFINITY_CPU2) {
+            DEBUG_FUNCTION_LINE_ERR("Skip core 2 for non-game UPID %d", upid);
+            continue;
+        }
+        auto *threadData = &layerInfo->threadData[coreId];
         memset(threadData, 0, sizeof(*threadData));
         threadData->setup  = false;
         threadData->thread = (OSThread *) memalign(8, sizeof(OSThread));
@@ -551,16 +564,24 @@ void startFSIOThreads() {
         coreId++;
     }
 
-    gThreadsRunning = true;
+    layerInfo->threadsRunning = true;
     OSMemoryBarrier();
 }
 
 void stopFSIOThreads() {
-    if (!gThreadsRunning) {
+    auto upid = OSGetUPID();
+    if (!sLayerInfoForUPID.contains(upid)) {
+        DEBUG_FUNCTION_LINE_ERR("Tried to start threads for invalid UPID %d", upid);
+        OSFatal("Tried to start threads for invalid UPID.");
+    }
+
+    auto &layerInfo = sLayerInfoForUPID[upid];
+    if (!layerInfo->threadsRunning) {
         return;
     }
-    for (auto &gThread : gThreadData) {
-        auto *thread = &gThread;
+
+    for (auto &curThread : layerInfo->threadData) {
+        auto *thread = &curThread;
         if (!thread->setup) {
             continue;
         }
@@ -583,5 +604,5 @@ void stopFSIOThreads() {
         }
     }
 
-    gThreadsRunning = false;
+    layerInfo->threadsRunning = false;
 }

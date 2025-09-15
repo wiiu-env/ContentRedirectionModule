@@ -75,7 +75,7 @@ FSError FSWrapper::FSReadDirWrapper(const FSDirectoryHandle handle, FSDirectoryE
     DIR *dir = dirHandle->dir;
 
     FSError result = FS_ERROR_END_OF_DIR;
-    DEBUG_FUNCTION_LINE_VERBOSE("[%s] readdir %08X (handle %08X)", getName().c_str(), dir, handle);
+    DEBUG_FUNCTION_LINE_VERBOSE("[%s] readdir %p (handle %08X)", getName().c_str(), dir, handle);
     do {
         errno                 = 0;
         struct dirent *entry_ = readdir(dir);
@@ -128,7 +128,7 @@ FSError FSWrapper::FSReadDirWrapper(const FSDirectoryHandle handle, FSDirectoryE
         } else {
             auto err = errno;
             if (err != 0) {
-                DEBUG_FUNCTION_LINE_ERR("[%s] Failed to read dir %08X (handle %08X). errno %d (%s)", getName().c_str(), dir, handle, err, strerror(err));
+                DEBUG_FUNCTION_LINE_ERR("[%s] Failed to read dir %p (handle %08X). errno %d (%s)", getName().c_str(), dir, handle, err, strerror(err));
                 result = FS_ERROR_MEDIA_ERROR;
             }
         }
@@ -146,9 +146,9 @@ FSError FSWrapper::FSCloseDirWrapper(const FSDirectoryHandle handle) {
     DIR *dir = dirHandle->dir;
 
     FSError result = FS_ERROR_OK;
-    DEBUG_FUNCTION_LINE_VERBOSE("[%s] closedir %08X (handle %08X)", getName().c_str(), dir, handle);
+    DEBUG_FUNCTION_LINE_VERBOSE("[%s] closedir %p (handle %08X)", getName().c_str(), dir, handle);
     if (closedir(dir) < 0) {
-        DEBUG_FUNCTION_LINE_ERR("[%s] Failed to close dir %08X (handle %08X)", getName().c_str(), dir, handle);
+        DEBUG_FUNCTION_LINE_ERR("[%s] Failed to close dir %p (handle %08X)", getName().c_str(), dir, handle);
         result = FS_ERROR_MEDIA_ERROR;
     }
     dirHandle->dir = nullptr;
@@ -164,7 +164,7 @@ FSError FSWrapper::FSRewindDirWrapper(const FSDirectoryHandle handle) {
 
     DIR *dir = dirHandle->dir;
 
-    DEBUG_FUNCTION_LINE_VERBOSE("[%s] rewinddir %08X (handle %08X)", getName().c_str(), dir, handle);
+    DEBUG_FUNCTION_LINE_VERBOSE("[%s] rewinddir %p (handle %08X)", getName().c_str(), dir, handle);
     rewinddir(dir);
 
     return FS_ERROR_OK;
@@ -397,7 +397,7 @@ FSError FSWrapper::FSReadFileWrapper(void *buffer, const uint32_t size, const ui
     auto fileHandle = getFileFromHandle(handle);
     int real_fd     = fileHandle->fd;
 
-    DEBUG_FUNCTION_LINE_VERBOSE("[%s] Read %u bytes of fd %08X (FSFileHandle %08X) to buffer %08X", getName().c_str(), size * count, real_fd, handle, buffer);
+    DEBUG_FUNCTION_LINE_VERBOSE("[%s] Read %u bytes of fd %08X (FSFileHandle %08X) to buffer %p", getName().c_str(), size * count, real_fd, handle, buffer);
     int64_t read = readIntoBuffer(real_fd, buffer, size, count);
 
     FSError result;
@@ -468,7 +468,7 @@ FSError FSWrapper::FSGetPosFileWrapper(const FSFileHandle handle, uint32_t *pos)
     DEBUG_FUNCTION_LINE_VERBOSE("[%s] lseek fd %08X (FSFileHandle %08X) to get current position for truncation", getName().c_str(), real_fd, handle);
     off_t currentPos = lseek(real_fd, (off_t) 0, SEEK_CUR);
     if (currentPos == -1) {
-        DEBUG_FUNCTION_LINE_ERR("[%s] Failed to get current position (res: %lld) of fd (handle %08X) to check EoF", getName().c_str(), currentPos, real_fd, handle);
+        DEBUG_FUNCTION_LINE_ERR("[%s] Failed to get current position (res: %lld) of fd %d (handle %08X) to check EoF", getName().c_str(), currentPos, real_fd, handle);
         result = FS_ERROR_MEDIA_ERROR;
     } else {
         *pos = currentPos;
@@ -493,7 +493,7 @@ FSError FSWrapper::FSIsEofWrapper(const FSFileHandle handle) {
 
     if (currentPos == -1 || endPos == -1) {
         // TODO: check errno
-        DEBUG_FUNCTION_LINE_ERR("[%s] Failed to get current position (res: %lld) or endPos (res: %lld) of fd (handle %08X) to check EoF", getName().c_str(), currentPos, endPos, real_fd, handle);
+        DEBUG_FUNCTION_LINE_ERR("[%s] Failed to get current position (res: %lld) or endPos (res: %lld) of fd %d (handle %08X) to check EoF", getName().c_str(), currentPos, endPos, real_fd, handle);
         result = FS_ERROR_MEDIA_ERROR;
     } else if (currentPos == endPos) {
         DEBUG_FUNCTION_LINE_VERBOSE("[%s] FSIsEof END for %d\n", getName().c_str(), real_fd);
@@ -527,7 +527,7 @@ FSError FSWrapper::FSTruncateFileWrapper(const FSFileHandle handle) {
     off_t currentPos = lseek(real_fd, (off_t) 0, SEEK_CUR);
     if (currentPos == -1) {
         // TODO check errno
-        DEBUG_FUNCTION_LINE_ERR("[%s] Failed to get current position of fd (handle %08X) to truncate file", getName().c_str(), real_fd, handle);
+        DEBUG_FUNCTION_LINE_ERR("[%s] Failed to get current position of fd %d (handle %08X) to truncate file", getName().c_str(), real_fd, handle);
         result = FS_ERROR_MEDIA_ERROR;
     } else {
         DEBUG_FUNCTION_LINE_VERBOSE("[%s] Truncate fd %08X (FSFileHandle %08X) to %lld bytes ", getName().c_str(), real_fd, handle, currentPos);
@@ -554,11 +554,11 @@ FSError FSWrapper::FSWriteFileWrapper(const uint8_t *buffer, const uint32_t size
 
     int real_fd = fileHandle->fd;
 
-    DEBUG_FUNCTION_LINE_VERBOSE("[%s] Write %u bytes to fd %08X (FSFileHandle %08X) from buffer %08X", getName().c_str(), count * size, real_fd, handle, buffer);
+    DEBUG_FUNCTION_LINE_VERBOSE("[%s] Write %u bytes to fd %08X (FSFileHandle %08X) from buffer %p", getName().c_str(), count * size, real_fd, handle, buffer);
     auto writeRes = writeFromBuffer(real_fd, buffer, size, count);
     if (writeRes < 0) {
         auto err = errno;
-        DEBUG_FUNCTION_LINE_ERR("[%s] Write failed %u bytes to fd %08X (FSFileHandle %08X) from buffer %08X errno %d", getName().c_str(), count * size, real_fd, handle, buffer, err);
+        DEBUG_FUNCTION_LINE_ERR("[%s] Write failed %u bytes to fd %08X (FSFileHandle %08X) from buffer %p errno %d", getName().c_str(), count * size, real_fd, handle, buffer, err);
         if (err == EFBIG) {
             result = FS_ERROR_FILE_TOO_BIG;
         } else if (err == EACCES) {
@@ -581,11 +581,11 @@ FSError FSWrapper::FSRemoveWrapper(const char *path) {
         DEBUG_FUNCTION_LINE_VERBOSE("[%s] Tried to remove %s but layer is not writeable", getName().c_str(), path);
         return FS_ERROR_PERMISSION_ERROR;
     }
-    auto newPath = GetNewPath(path);
+    const auto newPath = GetNewPath(path);
     DEBUG_FUNCTION_LINE_VERBOSE("[%s] Remove %s (%s)", getName().c_str(), path, newPath.c_str());
     if (remove(newPath.c_str()) < 0) {
-        auto err = errno;
-        DEBUG_FUNCTION_LINE_ERR("[%s] Rename failed %s (%s) errno %d", getName().c_str(), path, newPath.c_str(), err);
+        const auto err = errno;
+        DEBUG_FUNCTION_LINE_ERR("[%s] Remove failed %s (%s) errno %d", getName().c_str(), path, newPath.c_str(), err);
         if (err == ENOTDIR) {
             return FS_ERROR_NOT_DIR;
         } else if (err == EACCES) {
@@ -640,7 +640,7 @@ FSError FSWrapper::FSFlushFileWrapper(const FSFileHandle handle) {
     const auto fileHandle = getFileFromHandle(handle);
     const int real_fd     = fileHandle->fd;
 
-    DEBUG_FUNCTION_LINE_VERBOSE("[%s] fsync fd %08X (FSFileHandle %08X)", real_fd, handle);
+    DEBUG_FUNCTION_LINE_VERBOSE("[%s] fsync fd %08X (FSFileHandle %08X)", getName().c_str(), real_fd, handle);
     FSError result = FS_ERROR_OK;
     if (fsync(real_fd) < 0) {
         DEBUG_FUNCTION_LINE_ERR("[%s] fsync failed for fd %08X (FSFileHandle %08X)", getName().c_str(), real_fd, handle);

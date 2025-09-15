@@ -6,6 +6,7 @@
 #include <coreinit/filesystem.h>
 #include <coreinit/filesystem_fsa.h>
 #include <functional>
+#include <map>
 #include <mutex>
 #include <string>
 
@@ -41,6 +42,7 @@ struct FSShimWrapper {
     AsyncParamFS asyncFS;
     FSShimSyncType sync;
     FSShimApiType api;
+    uint32_t upid;
 };
 
 struct FSShimWrapperMessage {
@@ -53,10 +55,16 @@ struct FSShimWrapperMessage {
 #define FS_IO_QUEUE_COMMAND_PROCESS_FS_COMMAND 0x42424242
 #define FS_IO_QUEUE_SYNC_RESULT                0x43434343
 
-extern bool gThreadsRunning;
-extern FSIOThreadData gThreadData[3];
-extern std::mutex gFSLayerMutex;
-extern std::vector<std::unique_ptr<IFSWrapper>> gFSLayers;
+struct LayerInfo {
+    std::mutex mutex{};
+    std::vector<std::unique_ptr<IFSWrapper>> layers{};
+    std::mutex workingDirMutex{};
+    std::map<FSAClientHandle, std::string> workingDirs{};
+    FSIOThreadData threadData[3]{};
+    bool threadsRunning{};
+};
+
+extern std::map<uint32_t, std::shared_ptr<LayerInfo>> sLayerInfoForUPID;
 
 #define fsaShimPrepareRequestReadFile    ((FSError(*)(FSAShimBuffer * shim, IOSHandle clientHandle, uint8_t * buffer, uint32_t size, uint32_t count, uint32_t pos, FSFileHandle handle, FSAReadFlag readFlags))(0x101C400 + 0x436cc))
 #define fsaShimPrepareRequestWriteFile   ((FSError(*)(FSAShimBuffer * shim, IOSHandle clientHandle, const uint8_t *buffer, uint32_t size, uint32_t count, uint32_t pos, FSFileHandle handle, FSAWriteFlag writeFlags))(0x101C400 + 0x437f4))
@@ -86,9 +94,11 @@ extern std::vector<std::unique_ptr<IFSWrapper>> gFSLayers;
 
 extern "C" FSError __FSAShimDecodeIosErrorToFsaStatus(IOSHandle handle, IOSError err);
 
-bool sendMessageToThread(FSShimWrapperMessage *param);
+bool sendMessageToThread(const std::shared_ptr<LayerInfo> &layerInfo, FSShimWrapperMessage *param);
 
-void clearFSLayer();
+void clearFSLayer(const std::shared_ptr<LayerInfo> &layerInfo);
+
+void clearFSLayers();
 
 FSError doForLayer(FSShimWrapper *param);
 

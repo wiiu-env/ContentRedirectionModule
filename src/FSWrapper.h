@@ -24,6 +24,7 @@ public:
         std::ranges::replace(pPathToReplace, '\\', '/');
         std::ranges::replace(pReplacePathWith, '\\', '/');
     }
+
     ~FSWrapper() override {
         {
             std::lock_guard lockFiles(openFilesMutex);

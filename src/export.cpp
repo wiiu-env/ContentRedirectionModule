@@ -135,16 +135,17 @@ ContentRedirectionApiErrorType CRAddFSLayer(CRLayerHandle *handle, const char *l
     }
     if (ptr) {
         DEBUG_FUNCTION_LINE_VERBOSE("Added new layer (%s). Replacement dir: %s Type:%d", layerName, replacementDir, layerType);
-        std::lock_guard lock(gFSLayerMutex);
+        auto &layerInfo = sLayerInfoForUPID[2];
+        std::lock_guard<std::mutex> lock(layerInfo->mutex);
         *handle = (CRLayerHandle) ptr->getHandle();
-        gFSLayers.push_back(std::move(ptr));
+        layerInfo->layers.push_back(std::move(ptr));
         return CONTENT_REDIRECTION_API_ERROR_NONE;
     }
     DEBUG_FUNCTION_LINE_ERR("Failed to allocate memory");
     return CONTENT_REDIRECTION_API_ERROR_NO_MEMORY;
 }
 
-ContentRedirectionApiErrorType CRAddFSLayerEx(CRLayerHandle *handle, const char *layerName, const char *targetPath, const char *replacementPath, const FSLayerTypeEx layerType) {
+ContentRedirectionApiErrorType CRAddFSLayerEx2(CRLayerHandle *handle, const char *layerName, const char *targetPath, const char *replacementPath, const FSLayerTypeEx layerType, uint32_t upid) {
     if (!handle || layerName == nullptr || replacementPath == nullptr || targetPath == nullptr) {
         DEBUG_FUNCTION_LINE_WARN("CONTENT_REDIRECTION_API_ERROR_INVALID_ARG");
         return CONTENT_REDIRECTION_API_ERROR_INVALID_ARG;
@@ -174,9 +175,10 @@ ContentRedirectionApiErrorType CRAddFSLayerEx(CRLayerHandle *handle, const char 
 
     if (ptr) {
         DEBUG_FUNCTION_LINE_VERBOSE("[AddFSLayerEx] Added new layer (%s). Target path: %s Replacement dir: %s Type:%d", layerName, targetPath, replacementPath, layerType);
-        std::lock_guard lock(gFSLayerMutex);
-        *handle = ptr->getHandle();
-        gFSLayers.emplace_back(std::move(ptr));
+        auto &layerInfo = sLayerInfoForUPID[upid];
+        std::lock_guard<std::mutex> lock(layerInfo->mutex);
+        *handle = (CRLayerHandle) ptr->getHandle();
+        layerInfo->layers.push_back(std::move(ptr));
         return CONTENT_REDIRECTION_API_ERROR_NONE;
     }
     DEBUG_FUNCTION_LINE_ERR("[AddFSLayerEx] Failed to allocate memory");
@@ -184,20 +186,30 @@ ContentRedirectionApiErrorType CRAddFSLayerEx(CRLayerHandle *handle, const char 
 }
 
 
-ContentRedirectionApiErrorType CRRemoveFSLayer(CRLayerHandle handle) {
-    if (!remove_locked_first_if(gFSLayerMutex, gFSLayers, [handle](auto &cur) { return (CRLayerHandle) cur->getHandle() == handle; })) {
-        DEBUG_FUNCTION_LINE_WARN("CONTENT_REDIRECTION_API_ERROR_LAYER_NOT_FOUND for handle %08X", handle);
-        return CONTENT_REDIRECTION_API_ERROR_LAYER_NOT_FOUND;
-    }
-    return CONTENT_REDIRECTION_API_ERROR_NONE;
+ContentRedirectionApiErrorType CRAddFSLayerEx(CRLayerHandle *handle, const char *layerName, const char *targetPath, const char *replacementPath, const FSLayerTypeEx layerType) {
+    return CRAddFSLayerEx2(handle, layerName, targetPath, replacementPath, layerType, 2);
 }
 
-ContentRedirectionApiErrorType CRSetActive(CRLayerHandle handle, bool active) {
-    std::lock_guard lock(gFSLayerMutex);
-    for (auto &cur : gFSLayers) {
-        if ((CRLayerHandle) cur->getHandle() == handle) {
-            cur->setActive(active);
+ContentRedirectionApiErrorType CRRemoveFSLayer(CRLayerHandle handle) {
+    for (auto &[key, layerInfo] : sLayerInfoForUPID) {
+        if (remove_locked_first_if(layerInfo->mutex, layerInfo->layers, [handle](auto &cur) { return (CRLayerHandle) cur->getHandle() == handle; })) {
             return CONTENT_REDIRECTION_API_ERROR_NONE;
+        }
+    }
+
+    DEBUG_FUNCTION_LINE_WARN("CONTENT_REDIRECTION_API_ERROR_LAYER_NOT_FOUND for handle %08X", handle);
+    return CONTENT_REDIRECTION_API_ERROR_LAYER_NOT_FOUND;
+}
+
+
+ContentRedirectionApiErrorType CRSetActive(CRLayerHandle handle, bool active) {
+    for (auto &[key, layerInfo] : sLayerInfoForUPID) {
+        std::lock_guard<std::mutex> lock(layerInfo->mutex);
+        for (auto &cur : layerInfo->layers) {
+            if ((CRLayerHandle) cur->getHandle() == handle) {
+                cur->setActive(active);
+                return CONTENT_REDIRECTION_API_ERROR_NONE;
+            }
         }
     }
 
@@ -209,7 +221,7 @@ ContentRedirectionApiErrorType CRGetVersion(ContentRedirectionVersion *outVersio
     if (outVersion == nullptr) {
         return CONTENT_REDIRECTION_API_ERROR_INVALID_ARG;
     }
-    *outVersion = 2;
+    *outVersion = 3;
     return CONTENT_REDIRECTION_API_ERROR_NONE;
 }
 
@@ -228,3 +240,4 @@ WUMS_EXPORT_FUNCTION(CRRemoveFSLayer);
 WUMS_EXPORT_FUNCTION(CRSetActive);
 WUMS_EXPORT_FUNCTION(CRAddDevice);
 WUMS_EXPORT_FUNCTION(CRRemoveDevice);
+WUMS_EXPORT_FUNCTION(CRAddFSLayerEx2);

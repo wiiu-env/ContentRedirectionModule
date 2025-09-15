@@ -32,7 +32,7 @@ INCLUDES	:=	src
 CFLAGS	:=	-Wall -Wextra -Os -ffunction-sections\
 			$(MACHDEP)
 
-CFLAGS	+=	$(INCLUDE) -D__WIIU__ -D__WUT__
+CFLAGS	+=	$(INCLUDE) -D__WIIU__ -D__WUT__ -Werror
 
 CXXFLAGS	:= $(CFLAGS) -std=c++20
 
@@ -49,7 +49,7 @@ CXXFLAGS += -DDEBUG -DVERBOSE_DEBUG -g
 CFLAGS += -DDEBUG -DVERBOSE_DEBUG -g
 endif
 
-LIBS	:= -lwums -lwut -lfunctionpatcher
+LIBS	:= -lwums -lwut -lfunctionpatcher -lmocha
 
 #-------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level
