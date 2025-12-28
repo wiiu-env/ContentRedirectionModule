@@ -21,12 +21,12 @@ struct AOCTitle {
 WUT_CHECK_SIZE(AOCTitle, 0x68);
 
 bool getAOCPath(std::string &outStr) {
-    int32_t (*AOC_Initialize)()                                                                                                            = nullptr;
-    int32_t (*AOC_Finalize)()                                                                                                              = nullptr;
-    int32_t (*AOC_ListTitle)(uint32_t * titleCountOut, AOCTitle * titleList, uint32_t maxCount, void *workBuffer, uint32_t workBufferSize) = nullptr;
-    int32_t (*AOC_OpenTitle)(char *pathOut, AOCTitle *aocTitleInfo, void *workBuffer, uint32_t workBufferSize)                             = nullptr;
-    int32_t (*AOC_CalculateWorkBufferSize)(uint32_t count)                                                                                 = nullptr;
-    int32_t (*AOC_CloseTitle)(AOCTitle * aocTitleInfo)                                                                                     = nullptr;
+    int32_t (*AOC_Initialize)()                                                                                                          = nullptr;
+    int32_t (*AOC_Finalize)()                                                                                                            = nullptr;
+    int32_t (*AOC_ListTitle)(uint32_t *titleCountOut, AOCTitle *titleList, uint32_t maxCount, void *workBuffer, uint32_t workBufferSize) = nullptr;
+    int32_t (*AOC_OpenTitle)(char *pathOut, AOCTitle *aocTitleInfo, void *workBuffer, uint32_t workBufferSize)                           = nullptr;
+    int32_t (*AOC_CalculateWorkBufferSize)(uint32_t count)                                                                               = nullptr;
+    int32_t (*AOC_CloseTitle)(AOCTitle *aocTitleInfo)                                                                                    = nullptr;
 
     AOCTitle title{};
     char aocPath[256];
@@ -150,34 +150,43 @@ ContentRedirectionApiErrorType CRAddFSLayerEx2(CRLayerHandle *handle, const char
         DEBUG_FUNCTION_LINE_WARN("CONTENT_REDIRECTION_API_ERROR_INVALID_ARG");
         return CONTENT_REDIRECTION_API_ERROR_INVALID_ARG;
     }
+
+
+    std::string realReplacementPath(replacementPath);
+    /* if (upid != 2 && upid != 15) {
+        if (std::string_view(replacementPath).starts_with("fs:/")) {
+            realReplacementPath = std::string("fs_applet:/").append(replacementPath + strlen("fs:/"));
+        }
+    }*/
+
     std::unique_ptr<IFSWrapper> ptr;
     switch (layerType) {
         case FS_LAYER_TYPE_EX_REPLACE_DIRECTORY: {
-            DEBUG_FUNCTION_LINE_INFO("[AddFSLayerEx] Redirecting \"%s\" to \"%s\", mode: \"replace\"", targetPath, replacementPath);
-            ptr = make_unique_nothrow<FSWrapper>(layerName, targetPath, replacementPath, false, false);
+            DEBUG_FUNCTION_LINE_INFO("[AddFSLayerEx] Redirecting \"%s\" to \"%s\", mode: \"replace\"", targetPath, realReplacementPath.c_str());
+            ptr = make_unique_nothrow<FSWrapper>(layerName, targetPath, realReplacementPath, false, false);
             break;
         }
         case FS_LAYER_TYPE_EX_MERGE_DIRECTORY: {
-            DEBUG_FUNCTION_LINE_INFO("[AddFSLayerEx] Redirecting \"%s\" to \"%s\", mode: \"merge\"", targetPath, replacementPath);
-            ptr = make_unique_nothrow<FSWrapperMergeDirsWithParent>(layerName, targetPath, replacementPath, true);
+            DEBUG_FUNCTION_LINE_INFO("[AddFSLayerEx] Redirecting \"%s\" to \"%s\", mode: \"merge\"", targetPath, realReplacementPath.c_str());
+            ptr = make_unique_nothrow<FSWrapperMergeDirsWithParent>(layerName, targetPath, realReplacementPath, true);
             break;
         }
         case FS_LAYER_TYPE_EX_REPLACE_FILE: {
-            DEBUG_FUNCTION_LINE_INFO("[AddFSLayerEx] Redirecting file \"%s\" to \"%s\"", targetPath, replacementPath);
-            ptr = make_unique_nothrow<FSWrapperReplaceSingleFile>(layerName, targetPath, replacementPath, true);
+            DEBUG_FUNCTION_LINE_INFO("[AddFSLayerEx] Redirecting file \"%s\" to \"%s\"", targetPath, realReplacementPath.c_str());
+            ptr = make_unique_nothrow<FSWrapperReplaceSingleFile>(layerName, targetPath, realReplacementPath, true);
             break;
         }
         default: {
-            DEBUG_FUNCTION_LINE_ERR("[AddFSLayerEx] CONTENT_REDIRECTION_API_ERROR_UNKNOWN_LAYER_DIR_TYPE: %s %s %d", layerName, replacementPath, layerType);
+            DEBUG_FUNCTION_LINE_ERR("[AddFSLayerEx] CONTENT_REDIRECTION_API_ERROR_UNKNOWN_LAYER_DIR_TYPE: %s %s %d", layerName, realReplacementPath.c_str(), layerType);
             return CONTENT_REDIRECTION_API_ERROR_UNKNOWN_FS_LAYER_TYPE;
         }
     }
 
     if (ptr) {
-        DEBUG_FUNCTION_LINE_VERBOSE("[AddFSLayerEx] Added new layer (%s). Target path: %s Replacement dir: %s Type:%d", layerName, targetPath, replacementPath, layerType);
-        auto &layerInfo = sLayerInfoForUPID[upid];
-        std::lock_guard<std::mutex> lock(layerInfo->mutex);
-        *handle = (CRLayerHandle) ptr->getHandle();
+        DEBUG_FUNCTION_LINE_VERBOSE("[AddFSLayerEx] Added new layer (%s). Target path: %s Replacement dir: %s Type:%d", layerName, targetPath, realReplacementPath.c_str(), layerType);
+        const auto &layerInfo = sLayerInfoForUPID[upid];
+        std::lock_guard lock(layerInfo->mutex);
+        *handle = ptr->getHandle();
         layerInfo->layers.push_back(std::move(ptr));
         return CONTENT_REDIRECTION_API_ERROR_NONE;
     }

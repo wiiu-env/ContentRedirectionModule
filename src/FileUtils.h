@@ -62,6 +62,7 @@ struct LayerInfo {
     std::map<FSAClientHandle, std::string> workingDirs{};
     FSIOThreadData threadData[3]{};
     bool threadsRunning{};
+    bool sdCardMounted{};
 };
 
 extern std::map<uint32_t, std::shared_ptr<LayerInfo>> sLayerInfoForUPID;
@@ -94,9 +95,9 @@ extern std::map<uint32_t, std::shared_ptr<LayerInfo>> sLayerInfoForUPID;
 
 extern "C" FSError __FSAShimDecodeIosErrorToFsaStatus(IOSHandle handle, IOSError err);
 
-bool sendMessageToThread(const std::shared_ptr<LayerInfo> &layerInfo, FSShimWrapperMessage *param);
+bool sendMessageToThread(LayerInfo &layerInfo, FSShimWrapperMessage *param);
 
-void clearFSLayer(const std::shared_ptr<LayerInfo> &layerInfo);
+void clearFSLayer(LayerInfo &layerInfo);
 
 void clearFSLayers();
 
@@ -116,5 +117,5 @@ int64_t readIntoBuffer(int32_t handle, void *buffer, size_t size, size_t count);
 
 int64_t writeFromBuffer(int32_t handle, const void *buffer, size_t size, size_t count);
 
-void startFSIOThreads();
+void startFSIOThreadsForCurrentUPID();
 void stopFSIOThreads();

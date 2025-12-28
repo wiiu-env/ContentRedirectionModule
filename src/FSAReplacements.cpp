@@ -40,7 +40,7 @@ static FSError processFSAShimInThread(FSAShimBuffer *shimBuffer) {
 
             constexpr int32_t messageSize = sizeof(message->messages) / sizeof(message->messages[0]);
             OSInitMessageQueue(&message->messageQueue, message->messages, messageSize);
-            if (!sendMessageToThread(layerInfo, message)) {
+            if (!sendMessageToThread(*layerInfo, message)) {
                 DEBUG_FUNCTION_LINE_ERR("Failed to send message to thread");
                 OSFatal("ContentRedirectionModule: Failed send message to thread");
             }

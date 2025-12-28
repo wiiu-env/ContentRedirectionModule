@@ -11,70 +11,67 @@
 #include <map>
 #include <unistd.h>
 
-std::string getFullPathGeneric(const std::shared_ptr<LayerInfo> &layerInfo, const FSAClientHandle client, const char *path) {
-    std::lock_guard workingDirLock(layerInfo->mutex);
+namespace {
+    std::string getFullPathGeneric(LayerInfo &layerInfo, const FSAClientHandle client, const std::string_view path) {
+        std::lock_guard workingDirLock(layerInfo.mutex);
 
-    std::string res;
+        std::string res;
 
-    if (path[0] != '/' && path[0] != '\\') {
-        if (!layerInfo->workingDirs.contains(client)) {
-            DEBUG_FUNCTION_LINE_WARN("No working dir found for client %08X, fallback to \"/\"", client);
-            layerInfo->workingDirs[client] = "/";
+        if (path[0] != '/' && path[0] != '\\') {
+            if (!layerInfo.workingDirs.contains(client)) {
+                DEBUG_FUNCTION_LINE_WARN("No working dir found for client %08X, fallback to \"/\"", client);
+                layerInfo.workingDirs[client] = "/";
+            }
+            res = string_format("%s%s", layerInfo.workingDirs.at(client).c_str(), path.data());
+        } else {
+            res = path;
         }
-        res = string_format("%s%s", layerInfo->workingDirs.at(client).c_str(), path);
-    } else {
-        res = path;
+
+        std::ranges::replace(res, '\\', '/');
+
+        return res;
     }
 
-    std::ranges::replace(res, '\\', '/');
+    void setWorkingDirGeneric(LayerInfo &layerInfo, const FSAClientHandle client, const std::string_view path) {
+        std::lock_guard workingDirLock(layerInfo.workingDirMutex);
 
-    return res;
-}
-
-void setWorkingDirGeneric(const FSAClientHandle client, const char *path, std::mutex &mutex, std::map<FSAClientHandle, std::string> &map) {
-    if (!path) {
-        DEBUG_FUNCTION_LINE_WARN("Path was NULL");
-        return;
+        std::string cwd(path);
+        if (cwd.empty() || cwd.back() != '/') {
+            cwd.push_back('/');
+        }
+        layerInfo.workingDirs[client] = cwd;
+        OSMemoryBarrier();
     }
 
-    std::lock_guard workingDirLock(mutex);
 
-    std::string cwd(path);
-    if (cwd.empty() || cwd.back() != '/') {
-        cwd.push_back('/');
+    std::string getFullPath(LayerInfo &layerInfo, const FSAClientHandle pClient, const std::string_view path) {
+        return getFullPathGeneric(layerInfo, pClient, path);
     }
-    map[client] = cwd;
-    OSMemoryBarrier();
-}
 
+    void setWorkingDir(LayerInfo &layerInfo, const FSAClientHandle client, const std::string_view path) {
+        setWorkingDirGeneric(layerInfo, client, path);
+    }
+} // namespace
 
-std::string getFullPath(std::shared_ptr<LayerInfo> &layerInfo, const FSAClientHandle pClient, const char *path) {
-    return getFullPathGeneric(layerInfo, pClient, path);
-}
-
-void setWorkingDir(const std::shared_ptr<LayerInfo> &layerInfo, const FSAClientHandle client, const char *path) {
-    setWorkingDirGeneric(client, path, layerInfo->workingDirMutex, layerInfo->workingDirs);
-}
-
-void clearFSLayer(const std::shared_ptr<LayerInfo> &layerInfo) {
+void clearFSLayer(LayerInfo &layerInfo) {
     {
-        std::lock_guard workingDirLock(layerInfo->workingDirMutex);
-        layerInfo->workingDirs.clear();
+        std::lock_guard workingDirLock(layerInfo.workingDirMutex);
+        layerInfo.workingDirs.clear();
     }
     {
-        std::lock_guard layerLock(layerInfo->mutex);
-        layerInfo->layers.clear();
+        std::lock_guard layerLock(layerInfo.mutex);
+        layerInfo.layers.clear();
     }
 }
 
 void clearFSLayers() {
     for (auto &[upid, layerInfo] : sLayerInfoForUPID) {
-        clearFSLayer(layerInfo);
+        clearFSLayer(*layerInfo);
     }
 }
 
-bool sendMessageToThread(const std::shared_ptr<LayerInfo> &layerInfo, FSShimWrapperMessage *param) {
-    auto *curThread = &layerInfo->threadData[OSGetCoreId()];
+bool sendMessageToThread(LayerInfo &layerInfo, FSShimWrapperMessage *param) {
+    auto *curThread = &layerInfo.threadData[OSGetCoreId()];
     if (curThread->setup) {
         OSMessage send;
         send.message   = param;
@@ -99,13 +96,13 @@ FSError doForLayer(FSShimWrapper *param) {
         DEBUG_FUNCTION_LINE_ERR("INVALID UPID IN SHIMWRAPPER: %d", param->upid);
         OSFatal("Invalid UPID");
     }
-    auto &layerInfo = sLayerInfoForUPID[param->upid];
+    LayerInfo &layerInfo = *sLayerInfoForUPID[param->upid];
 
-    std::lock_guard lock(layerInfo->mutex);
-    if (!layerInfo->layers.empty()) {
-        uint32_t startIndex = layerInfo->layers.size();
-        for (uint32_t i = layerInfo->layers.size(); i > 0; i--) {
-            if (layerInfo->layers[i - 1]->getLayerId() == param->shim->clientHandle) {
+    std::lock_guard lock(layerInfo.mutex);
+    if (!layerInfo.layers.empty()) {
+        uint32_t startIndex = layerInfo.layers.size();
+        for (uint32_t i = layerInfo.layers.size(); i > 0; i--) {
+            if (layerInfo.layers[i - 1]->getLayerId() == param->shim->clientHandle) {
                 startIndex = i - 1;
                 break;
             }
@@ -113,7 +110,7 @@ FSError doForLayer(FSShimWrapper *param) {
 
         if (startIndex > 0) {
             for (uint32_t i = startIndex; i > 0; i--) {
-                auto &layer = layerInfo->layers[i - 1];
+                auto &layer = layerInfo.layers[i - 1];
                 if (!layer->isActive()) {
                     continue;
                 }
@@ -510,17 +507,17 @@ static int32_t fsIOthreadCallback([[maybe_unused]] int argc, const char **argv) 
     return 0;
 }
 
-void startFSIOThreads() {
+void startFSIOThreadsForCurrentUPID() {
     int32_t threadAttributes[] = {OS_THREAD_ATTRIB_AFFINITY_CPU0, OS_THREAD_ATTRIB_AFFINITY_CPU1, OS_THREAD_ATTRIB_AFFINITY_CPU2};
-    auto stackSize             = 16 * 1024;
-    auto upid                  = OSGetUPID();
+    constexpr auto stackSize   = 16 * 1024;
+    const auto upid            = OSGetUPID();
     if (!sLayerInfoForUPID.contains(upid)) {
         DEBUG_FUNCTION_LINE_ERR("Tried to start threads for invalid UPID %d", upid);
         OSFatal("Tried to start threads for invalid UPID.");
     }
 
-    auto &layerInfo = sLayerInfoForUPID[upid];
-    if (layerInfo->threadsRunning) {
+    auto &layerInfo = *sLayerInfoForUPID[upid];
+    if (layerInfo.threadsRunning) {
         return;
     }
 
@@ -530,7 +527,7 @@ void startFSIOThreads() {
             DEBUG_FUNCTION_LINE_ERR("Skip core 2 for non-game UPID %d", upid);
             continue;
         }
-        auto *threadData = &layerInfo->threadData[coreId];
+        FSIOThreadData *threadData = &layerInfo.threadData[coreId];
         memset(threadData, 0, sizeof(*threadData));
         threadData->setup  = false;
         threadData->thread = (OSThread *) memalign(8, sizeof(OSThread));
@@ -557,14 +554,14 @@ void startFSIOThreads() {
             OSFatal("ContentRedirectionModule: Failed to create threadData");
         }
 
-        strncpy(threadData->threadName, string_format("ContentRedirection IO Thread %d", coreId).c_str(), sizeof(threadData->threadName) - 1);
+        strncpy(threadData->threadName, string_format("[%d] ContentRedirection IO Thread %d", upid, coreId).c_str(), sizeof(threadData->threadName) - 1);
         OSSetThreadName(threadData->thread, threadData->threadName);
         OSResumeThread(threadData->thread);
         threadData->setup = true;
         coreId++;
     }
 
-    layerInfo->threadsRunning = true;
+    layerInfo.threadsRunning = true;
     OSMemoryBarrier();
 }
 
@@ -575,12 +572,12 @@ void stopFSIOThreads() {
         OSFatal("Tried to start threads for invalid UPID.");
     }
 
-    auto &layerInfo = sLayerInfoForUPID[upid];
-    if (!layerInfo->threadsRunning) {
+    auto &layerInfo = *sLayerInfoForUPID[upid];
+    if (!layerInfo.threadsRunning) {
         return;
     }
 
-    for (auto &curThread : layerInfo->threadData) {
+    for (auto &curThread : layerInfo.threadData) {
         auto *thread = &curThread;
         if (!thread->setup) {
             continue;
@@ -604,5 +601,5 @@ void stopFSIOThreads() {
         }
     }
 
-    layerInfo->threadsRunning = false;
+    layerInfo.threadsRunning = false;
 }

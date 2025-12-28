@@ -133,7 +133,7 @@ bool processFSAShimInThread(FSAShimBuffer *shimBuffer, FSClient *client, FSCmdBl
                 OSFatal("ContentRedirectionModule: Failed to allocate memory for FSShimWrapperMessage");
             }
             message->param = param;
-            res            = sendMessageToThread(layerInfo, message);
+            res            = sendMessageToThread(*layerInfo, message);
             // the other thread is call free for us, so we can return early!
         }
     } else {
@@ -581,28 +581,31 @@ MochaUtilsStatus MountWrapper(const char *mount, const char *dev, const char *mo
     return res;
 }
 
-extern ContentRedirectionApiErrorType CRAddFSLayerEx2(CRLayerHandle *handle, const char *layerName, const char *targetPath, const char *replacementPath, FSLayerTypeEx layerType, uint32_t upid);
 DECL_FUNCTION(void, START_HOOK) {
     real_START_HOOK();
-    auto UPID = OSGetUPID();
+    const auto UPID = OSGetUPID();
     if (UPID != 2 && UPID != 15 && sLayerInfoForUPID.contains(UPID)) {
-        DEBUG_FUNCTION_LINE_ERR("Clear layer for UPID %d", UPID);
-        clearFSLayer(sLayerInfoForUPID[UPID]);
-        DEBUG_FUNCTION_LINE_ERR("Start threads");
-        startFSIOThreads();
-    }
-    if (UPID == 8) {
-        CRLayerHandle handle;
-        Mocha_MountFS("storage_mlc", nullptr, "/vol/storage_mlc01");
-        CRAddFSLayerEx2(&handle, "browser_test", "/vol/content", "storage_mlc:/usr/tmp", FS_LAYER_TYPE_EX_MERGE_DIRECTORY, UPID);
+        DEBUG_FUNCTION_LINE_INFO("Start fs io thread for upid %d", UPID);
+        startFSIOThreadsForCurrentUPID();
+
+        DEBUG_FUNCTION_LINE_INFO("Mount sd card to %s for %d", "fs_applet", UPID);
+        if (Mocha_MountFSEx("fs_applet", "/dev/sdcard01", "/vol/external01", FSA_MOUNT_FLAG_LOCAL_MOUNT, nullptr, 0) != MOCHA_RESULT_SUCCESS) {
+            DEBUG_FUNCTION_LINE_ERR("Failed to mount sd card");
+        }
+        sLayerInfoForUPID[UPID]->sdCardMounted = true;
     }
 }
 
 DECL_FUNCTION(void, __PPCExit, uint32_t u1) {
-    auto UPID = OSGetUPID();
+    const auto UPID = OSGetUPID();
     if (UPID != 2 && UPID != 15 && sLayerInfoForUPID.contains(UPID)) {
-        DEBUG_FUNCTION_LINE_ERR("Clear layer for UPID %d", UPID);
-        clearFSLayer(sLayerInfoForUPID[UPID]);
+        if (const auto &layer = sLayerInfoForUPID[UPID]; layer->sdCardMounted) {
+            if (Mocha_UnmountFS("fs_applet") != MOCHA_RESULT_SUCCESS) {
+                DEBUG_FUNCTION_LINE_ERR("Failed to unmount sd card");
+            }
+            layer->sdCardMounted = false;
+        }
+        DEBUG_FUNCTION_LINE_INFO("Stop fs io thread for upid %d", UPID);
         stopFSIOThreads();
     }
     real___PPCExit(u1);

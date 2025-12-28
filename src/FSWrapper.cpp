@@ -322,6 +322,7 @@ bool FSWrapper::CheckFileShouldBeIgnored(std::string &path) {
 
     auto newDelPath = asPath.replace_filename(deletePrefix + asPath.filename().c_str());
     struct stat buf {};
+    DEBUG_FUNCTION_LINE_ERR("Statting %s", newDelPath.c_str());
     if (stat(newDelPath.c_str(), &buf) == 0) {
         DEBUG_FUNCTION_LINE_VERBOSE("[%s] Ignore %s, file %s exists", getName().c_str(), path.c_str(), newDelPath.c_str());
         return true;

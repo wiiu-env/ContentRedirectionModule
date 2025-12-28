@@ -45,13 +45,17 @@ extern "C" {
 
 #else
 
-#define DEBUG_FUNCTION_LINE_VERBOSE_EX(FMT, ARGS...)                           while (0)
+#define DEBUG_FUNCTION_LINE_VERBOSE_EX(FMT, ARGS...) \
+    while (0) {}
 
-#define DEBUG_FUNCTION_LINE_VERBOSE(FMT, ARGS...)                              while (0)
+#define DEBUG_FUNCTION_LINE_VERBOSE(FMT, ARGS...) \
+    while (0) {}
 
-#define DEBUG_FUNCTION_LINE(FMT, ARGS...)                                      while (0)
+#define DEBUG_FUNCTION_LINE(FMT, ARGS...) \
+    while (0) {}
 
-#define DEBUG_FUNCTION_LINE_WRITE(FMT, ARGS...)                                while (0)
+#define DEBUG_FUNCTION_LINE_WRITE(FMT, ARGS...) \
+    while (0) {}
 
 #define DEBUG_FUNCTION_LINE_ERR(FMT, ARGS...)                                  LOG_EX_DEFAULT(OSReport, "##ERROR## ", "\n", FMT, ##ARGS)
 #define DEBUG_FUNCTION_LINE_WARN(FMT, ARGS...)                                 LOG_EX_DEFAULT(OSReport, "##WARN ## ", "\n", FMT, ##ARGS)

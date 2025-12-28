@@ -66,7 +66,7 @@ FSError FSWrapperMergeDirsWithParent::FSReadDirWrapper(FSADirectoryHandle handle
             }
             if (res == FS_ERROR_OK) {
                 if (dirHandle->readResultCapacity == 0) {
-                    dirHandle->readResult = (FSDirectoryEntryEx *) malloc(sizeof(FSDirectoryEntryEx));
+                    dirHandle->readResult = static_cast<FSDirectoryEntryEx *>(malloc(sizeof(FSDirectoryEntryEx)));
                     if (dirHandle->readResult == nullptr) {
                         DEBUG_FUNCTION_LINE_ERR("[%s] Failed to alloc memory for %p (handle %08X)", getName().c_str(), dirHandle.get(), handle);
                         OSFatal("ContentRedirectionModule: Failed to alloc memory for read result");
@@ -76,7 +76,7 @@ FSError FSWrapperMergeDirsWithParent::FSReadDirWrapper(FSADirectoryHandle handle
 
                 if (dirHandle->readResultNumberOfEntries >= dirHandle->readResultCapacity) {
                     auto newCapacity              = dirHandle->readResultCapacity * 2;
-                    dirHandle->readResult         = (FSDirectoryEntryEx *) realloc(dirHandle->readResult, newCapacity * sizeof(FSDirectoryEntryEx));
+                    dirHandle->readResult         = static_cast<FSDirectoryEntryEx *>(realloc(dirHandle->readResult, newCapacity * sizeof(FSDirectoryEntryEx)));
                     dirHandle->readResultCapacity = newCapacity;
                     if (dirHandle->readResult == nullptr) {
                         DEBUG_FUNCTION_LINE_ERR("[%s] Failed to realloc memory for %p (handle %08X)", getName().c_str(), dirHandle.get(), handle);
