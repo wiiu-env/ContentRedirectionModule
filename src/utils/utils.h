@@ -15,8 +15,8 @@ std::shared_ptr<T> make_shared_nothrow(Args &&...args) noexcept(noexcept(T(std::
 }
 
 template<typename T, class Allocator, class Predicate>
-bool remove_locked_first_if(std::mutex &mutex, std::vector<T, Allocator> &list, Predicate pred) {
-    std::lock_guard<std::mutex> lock(mutex);
+bool remove_locked_first_if(std::recursive_mutex &mutex, std::vector<T, Allocator> &list, Predicate pred) {
+    std::lock_guard lock(mutex);
     auto it = list.begin();
     while (it != list.end()) {
         if (pred(*it)) {

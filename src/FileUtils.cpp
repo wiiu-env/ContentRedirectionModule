@@ -12,14 +12,14 @@
 #include <unistd.h>
 
 namespace {
-    std::mutex sWorkingDirMutex;
+    std::recursive_mutex sWorkingDirMutex;
     std::map<FSAClientHandle, std::string> sWorkingDirs;
 } // namespace
 
-std::mutex gFSLayerMutex;
+std::recursive_mutex gFSLayerMutex;
 std::vector<std::unique_ptr<IFSWrapper>> gFSLayers;
 
-std::string getFullPathGeneric(const FSAClientHandle client, const char *path, std::mutex &mutex, const std::map<FSAClientHandle, std::string> &map) {
+std::string getFullPathGeneric(const FSAClientHandle client, const char *path, std::recursive_mutex &mutex, const std::map<FSAClientHandle, std::string> &map) {
     std::lock_guard workingDirLock(mutex);
 
     std::string res;
@@ -39,7 +39,7 @@ std::string getFullPathGeneric(const FSAClientHandle client, const char *path, s
     return res;
 }
 
-void setWorkingDirGeneric(const FSAClientHandle client, const char *path, std::mutex &mutex, std::map<FSAClientHandle, std::string> &map) {
+void setWorkingDirGeneric(const FSAClientHandle client, const char *path, std::recursive_mutex &mutex, std::map<FSAClientHandle, std::string> &map) {
     if (!path) {
         DEBUG_FUNCTION_LINE_WARN("Path was NULL");
         return;
