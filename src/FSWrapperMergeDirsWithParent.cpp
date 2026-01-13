@@ -68,7 +68,7 @@ FSError FSWrapperMergeDirsWithParent::FSReadDirWrapper(FSADirectoryHandle handle
                 if (dirHandle->readResultCapacity == 0) {
                     dirHandle->readResult = (FSDirectoryEntryEx *) malloc(sizeof(FSDirectoryEntryEx));
                     if (dirHandle->readResult == nullptr) {
-                        DEBUG_FUNCTION_LINE_ERR("[%s] Failed to alloc memory for %08X (handle %08X)", getName().c_str(), dirHandle.get(), handle);
+                        DEBUG_FUNCTION_LINE_ERR("[%s] Failed to alloc memory for %p (handle %08X)", getName().c_str(), dirHandle.get(), handle);
                         OSFatal("ContentRedirectionModule: Failed to alloc memory for read result");
                     }
                     dirHandle->readResultCapacity = 1;
@@ -79,7 +79,7 @@ FSError FSWrapperMergeDirsWithParent::FSReadDirWrapper(FSADirectoryHandle handle
                     dirHandle->readResult         = (FSDirectoryEntryEx *) realloc(dirHandle->readResult, newCapacity * sizeof(FSDirectoryEntryEx));
                     dirHandle->readResultCapacity = newCapacity;
                     if (dirHandle->readResult == nullptr) {
-                        DEBUG_FUNCTION_LINE_ERR("[%s] Failed to realloc memory for %08X (handle %08X)", getName().c_str(), dirHandle.get(), handle);
+                        DEBUG_FUNCTION_LINE_ERR("[%s] Failed to realloc memory for %p (handle %08X)", getName().c_str(), dirHandle.get(), handle);
                         OSFatal("ContentRedirectionModule: Failed to alloc memory for read result");
                     }
                 }
@@ -242,7 +242,7 @@ FSWrapperMergeDirsWithParent::~FSWrapperMergeDirsWithParent() {
     if (mClientHandle) {
         FSError res;
         if ((res = FSADelClient(mClientHandle)) != FS_ERROR_OK) {
-            DEBUG_FUNCTION_LINE_ERR("[%s] FSADelClient failed: %s (%d)", FSAGetStatusStr(res), res);
+            DEBUG_FUNCTION_LINE_ERR("[%s] FSADelClient failed: %s (%d)", pName.c_str(), FSAGetStatusStr(res), res);
         }
         mClientHandle = 0;
     }
