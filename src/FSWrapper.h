@@ -134,8 +134,8 @@ private:
     std::string pPathToReplace;
     std::string pReplacePathWith;
     bool pIsWriteable = false;
-    std::mutex openFilesMutex;
-    std::mutex openDirsMutex;
+    std::recursive_mutex openFilesMutex;
+    std::recursive_mutex openDirsMutex;
     std::vector<std::shared_ptr<FileInfo>> openFiles;
     std::vector<std::shared_ptr<DirInfoBase>> openDirs;
 };

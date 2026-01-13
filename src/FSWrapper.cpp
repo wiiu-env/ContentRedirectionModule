@@ -249,7 +249,7 @@ FSError FSWrapper::FSOpenFileWrapper(const char *path, const char *mode, FSFileH
     if (fd >= 0) {
         auto fileHandle = getNewFileHandle();
         if (fileHandle) {
-            std::lock_guard<std::mutex> lock(openFilesMutex);
+            std::lock_guard lock(openFilesMutex);
 
             fileHandle->handle = (((uint32_t) fileHandle.get()) & 0x0FFFFFFF) | 0x30000000;
             *handle            = fileHandle->handle;
