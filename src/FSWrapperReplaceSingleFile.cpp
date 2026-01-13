@@ -41,7 +41,7 @@ FSWrapperReplaceSingleFile::FSWrapperReplaceSingleFile(const std::string &name,
 FSWrapperReplaceSingleFile::~FSWrapperReplaceSingleFile() {
     if (mClientHandle) {
         if (const FSError res = FSADelClient(mClientHandle); res != FS_ERROR_OK) {
-            DEBUG_FUNCTION_LINE_ERR("[%s] FSADelClient failed: %s (%d)", FSAGetStatusStr(res), res);
+            DEBUG_FUNCTION_LINE_ERR("[%s] FSADelClient failed: %s (%d)", pName.c_str(), FSAGetStatusStr(res), res);
         }
         mClientHandle = 0;
     }

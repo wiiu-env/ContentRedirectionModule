@@ -209,10 +209,10 @@ FSError doForLayer(FSShimWrapper *param) {
 
                         auto *request = &param->shim->request.readFile;
                         if (request->readFlags == FSA_READ_FLAG_NONE) {
-                            DEBUG_FUNCTION_LINE_VERBOSE("[%s] ReadFile: buffer %08X size %08X count %08X handle %08X", layer->getName().c_str(), request->buffer, request->size, request->count, request->handle);
+                            DEBUG_FUNCTION_LINE_VERBOSE("[%s] ReadFile: buffer %p size %08X count %08X handle %08X", layer->getName().c_str(), request->buffer, request->size, request->count, request->handle);
                             layerResult = layer->FSReadFileWrapper(request->buffer, request->size, request->count, request->handle, 0);
                         } else if (request->readFlags == FSA_READ_FLAG_READ_WITH_POS) {
-                            DEBUG_FUNCTION_LINE_VERBOSE("[%s] ReadFileWithPos: buffer %08X size %08X count %08X pos %08X handle %08X", layer->getName().c_str(), request->buffer, request->size, request->count, request->pos, request->handle);
+                            DEBUG_FUNCTION_LINE_VERBOSE("[%s] ReadFileWithPos: buffer %p size %08X count %08X pos %08X handle %08X", layer->getName().c_str(), request->buffer, request->size, request->count, request->pos, request->handle);
                             layerResult = layer->FSReadFileWithPosWrapper(request->buffer, request->size, request->count, request->pos, request->handle, 0);
                         }
                         break;
@@ -250,10 +250,10 @@ FSError doForLayer(FSShimWrapper *param) {
 
                         auto *request = &param->shim->request.writeFile;
                         if (request->writeFlags == FSA_WRITE_FLAG_NONE) {
-                            DEBUG_FUNCTION_LINE_VERBOSE("[%s] WriteFile: buffer %08X size %08X count %08X handle %08X", layer->getName().c_str(), request->buffer, request->size, request->count, request->handle);
+                            DEBUG_FUNCTION_LINE_VERBOSE("[%s] WriteFile: buffer %p size %08X count %08X handle %08X", layer->getName().c_str(), request->buffer, request->size, request->count, request->handle);
                             layerResult = layer->FSWriteFileWrapper(request->buffer, request->size, request->count, request->handle, 0);
                         } else if (request->writeFlags == FSA_WRITE_FLAG_READ_WITH_POS) {
-                            DEBUG_FUNCTION_LINE_VERBOSE("[%s] WriteFileWithPos: buffer %08X size %08X count %08X pos %08X handle %08X", layer->getName().c_str(), request->buffer, request->size, request->count, request->pos, request->handle);
+                            DEBUG_FUNCTION_LINE_VERBOSE("[%s] WriteFileWithPos: buffer %p size %08X count %08X pos %08X handle %08X", layer->getName().c_str(), request->buffer, request->size, request->count, request->pos, request->handle);
                             layerResult = layer->FSWriteFileWithPosWrapper(request->buffer, request->size, request->count, request->pos, request->handle, 0);
                         }
                         break;
