@@ -1,4 +1,4 @@
-FROM ghcr.io/wiiu-env/devkitppc:20241128
+FROM ghcr.io/wiiu-env/devkitppc:20260204
 
 COPY --from=ghcr.io/wiiu-env/libfunctionpatcher:20230621 /artifacts $DEVKITPRO
 COPY --from=ghcr.io/wiiu-env/wiiumodulesystem:20250208 /artifacts $DEVKITPRO
