@@ -1,7 +1,6 @@
 #include "FSAReplacements.h"
 #include "FSReplacements.h"
 #include "FileUtils.h"
-#include "utils/StringTools.h"
 #include "utils/logger.h"
 #include "version.h"
 #include <wums.h>
