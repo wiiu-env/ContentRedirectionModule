@@ -3,6 +3,7 @@
 #include "FileUtils.h"
 #include "IFSWrapper.h"
 #include "malloc.h"
+#include "utils/DevoptabTrampoline.h"
 #include "utils/StringTools.h"
 #include "utils/logger.h"
 #include "utils/utils.h"
@@ -10,6 +11,7 @@
 #include <FSWrapperReplaceSingleFile.h>
 #include <content_redirection/redirection.h>
 #include <coreinit/dynload.h>
+#include <cstring>
 #include <mutex>
 #include <nn/act.h>
 #include <wums/exports.h>
@@ -209,22 +211,63 @@ ContentRedirectionApiErrorType CRGetVersion(ContentRedirectionVersion *outVersio
     if (outVersion == nullptr) {
         return CONTENT_REDIRECTION_API_ERROR_INVALID_ARG;
     }
-    *outVersion = 2;
+    *outVersion = 3;
     return CONTENT_REDIRECTION_API_ERROR_NONE;
 }
 
 int CRAddDevice(const devoptab_t *device) {
+    DEBUG_FUNCTION_LINE_WARN("Usage of deprecated \"CRAddDevice\" API detected. Please use latest libcontentredirection.");
     return AddDevice(device);
 }
 
 int CRRemoveDevice(const char *name) {
+    DEBUG_FUNCTION_LINE_WARN("Usage deprecated \"CRRemoveDevice\" API. Please use latest libcontentredirection.");
     return RemoveDevice(name);
 }
 
+ContentRedirectionApiErrorType CRAddDeviceABI(const ContentRedirectionDeviceABI *device, int *resultOut) {
+    if (!device || device->magic != CONTENT_REDIRECTION_DEVICE_MAGIC || device->version < CONTENT_REDIRECTION_DEVICE_VERSION || !resultOut) {
+        return CONTENT_REDIRECTION_API_ERROR_INVALID_ARG;
+    }
+
+    const auto *host_dev = DevoptabTrampoline::CreateDevoptab(device);
+    if (!host_dev) {
+        return CONTENT_REDIRECTION_API_ERROR_NO_MEMORY;
+    }
+
+    *resultOut = AddDevice(host_dev);
+
+    if (*resultOut < 0) {
+        DevoptabTrampoline::ClearDevoptab(host_dev);
+    }
+
+    return CONTENT_REDIRECTION_API_ERROR_NONE;
+}
+
+ContentRedirectionApiErrorType CRRemoveDeviceABI(const char *device_name, int *resultOut) {
+    if (!device_name || !resultOut) {
+        return CONTENT_REDIRECTION_API_ERROR_INVALID_ARG;
+    }
+
+    if (!DevoptabTrampoline::RemoveDevoptab(device_name, resultOut)) {
+        *resultOut = -1;
+        return CONTENT_REDIRECTION_API_ERROR_INVALID_ARG;
+    }
+
+    return CONTENT_REDIRECTION_API_ERROR_NONE;
+}
+
+// API Version 1
 WUMS_EXPORT_FUNCTION(CRGetVersion);
-WUMS_EXPORT_FUNCTION(CRAddFSLayerEx);
 WUMS_EXPORT_FUNCTION(CRAddFSLayer);
 WUMS_EXPORT_FUNCTION(CRRemoveFSLayer);
 WUMS_EXPORT_FUNCTION(CRSetActive);
 WUMS_EXPORT_FUNCTION(CRAddDevice);
 WUMS_EXPORT_FUNCTION(CRRemoveDevice);
+
+// API Version 2
+WUMS_EXPORT_FUNCTION(CRAddFSLayerEx);
+
+// API Version 3
+WUMS_EXPORT_FUNCTION(CRAddDeviceABI);
+WUMS_EXPORT_FUNCTION(CRRemoveDeviceABI);
