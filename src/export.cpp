@@ -187,6 +187,9 @@ ContentRedirectionApiErrorType CRAddFSLayerEx(CRLayerHandle *handle, const char 
 
 
 ContentRedirectionApiErrorType CRRemoveFSLayer(CRLayerHandle handle) {
+    if (!gThreadsRunning) { // if no threads a running we have removed the layers anyway
+        return CONTENT_REDIRECTION_API_ERROR_NONE;
+    }
     if (!remove_locked_first_if(gFSLayerMutex, gFSLayers, [handle](auto &cur) { return (CRLayerHandle) cur->getHandle() == handle; })) {
         DEBUG_FUNCTION_LINE_WARN("CONTENT_REDIRECTION_API_ERROR_LAYER_NOT_FOUND for handle %08X", handle);
         return CONTENT_REDIRECTION_API_ERROR_LAYER_NOT_FOUND;
@@ -238,6 +241,7 @@ ContentRedirectionApiErrorType CRAddDeviceABI(const ContentRedirectionDeviceABI 
     *resultOut = AddDevice(host_dev);
 
     if (*resultOut < 0) {
+        DEBUG_FUNCTION_LINE_WARN("AddDevice failed: %d", *resultOut);
         DevoptabTrampoline::ClearDevoptab(host_dev);
     }
 
@@ -250,7 +254,6 @@ ContentRedirectionApiErrorType CRRemoveDeviceABI(const char *device_name, int *r
     }
 
     if (!DevoptabTrampoline::RemoveDevoptab(device_name, resultOut)) {
-        *resultOut = -1;
         return CONTENT_REDIRECTION_API_ERROR_INVALID_ARG;
     }
 
