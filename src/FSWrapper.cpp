@@ -86,7 +86,7 @@ FSError FSWrapper::FSReadDirWrapper(const FSDirectoryHandle handle, FSDirectoryE
                 continue;
             }
             entry->name[0] = '\0';
-            strncat(entry->name, entry_->d_name, sizeof(entry->name) - 1);
+            strlcpy(entry->name, entry_->d_name, sizeof(entry->name));
             entry->info.mode = (FSMode) FS_MODE_READ_OWNER;
             if (entry_->d_type == DT_DIR) {
                 entry->info.flags = (FSStatFlags) ((uint32_t) FS_STAT_DIRECTORY);
