@@ -115,7 +115,7 @@ FSError FSWrapperReplaceSingleFile::FSReadDirWrapper(const FSADirectoryHandle ha
                 continue;
             }
             translate_stat(&path_stat, &dirHandle->directoryEntry.info);
-            strncpy(dirHandle->directoryEntry.name, mFileNameToReplace.c_str(), sizeof(dirHandle->directoryEntry.name));
+            strncpy(dirHandle->directoryEntry.name, mFileNameToReplace.c_str(), sizeof(dirHandle->directoryEntry.name) - 1);
             memcpy(entry, &dirHandle->directoryEntry, sizeof(FSADirectoryEntry));
 
             dirHandle->entryReadSuccess = true;
