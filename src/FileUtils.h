@@ -13,7 +13,7 @@ struct FSIOThreadData {
     OSThread *thread;
     void *stack;
     OSMessageQueue queue;
-    OSMessage messages[0x10];
+    OSMessage messages[0x40];
     bool setup;
     char threadName[0x50];
 };
